@@ -1,0 +1,26 @@
+{
+  "name": "@slide-computer/identity",
+  "version": "1.0.0",
+  "description": "Connect to Slide Wallet on the Internet Computer",
+  "main": "./lib/cjs/index",
+  "module": "./lib/esm/index",
+  "unpkg": "./lib/esm/index",
+  "scripts": {
+    "build": "tsc -b && tsc -p tsconfig-cjs.json"
+  },
+  "author": "Slide",
+  "license": "MIT",
+  "peerDependencies": {
+    "@dfinity/agent": "^0.15.4",
+    "@dfinity/identity": "^0.15.4",
+    "@dfinity/principal": "^0.15.4"
+  },
+  "dependencies": {
+    "buffer": "^6.0.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.6",
+    "eslint": "^8.47.0",
+    "prettier": "^3.0.2"
+  }
+}

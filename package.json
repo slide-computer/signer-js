@@ -11,9 +11,9 @@
   "author": "Slide",
   "license": "MIT",
   "peerDependencies": {
-    "@dfinity/agent": "^0.15.4",
-    "@dfinity/identity": "^0.15.4",
-    "@dfinity/principal": "^0.15.4"
+    "@dfinity/agent": ">=0.15.4",
+    "@dfinity/identity": ">=0.15.4",
+    "@dfinity/principal": ">=0.15.4"
   },
   "dependencies": {
     "buffer": "^6.0.3"

@@ -2,8 +2,8 @@ import { Linking } from "../types";
 
 export class WebLinking implements Linking {
   open(url: string): void {
-    const width = 360;
-    const height = 520;
+    const width = 380;
+    const height = 540;
     const left = window.outerWidth / 2 + window.screenX - width / 2;
     const top = window.outerHeight / 2 + window.screenY - height / 2;
     window.open(

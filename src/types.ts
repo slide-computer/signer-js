@@ -4,7 +4,7 @@ export interface Linking {
 
 export type MessageData = {
   id: string;
-} & ({ ok: string } | { err: string });
+} & ({ ok: object } | { err: string });
 
 export interface Message {
   receive(listener: (data: MessageData) => void): () => void;

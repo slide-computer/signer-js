@@ -24,18 +24,14 @@ export class LinkTransport implements Transport {
   public async send<Request extends JsonRequest = JsonRequest>(
     request: Request,
   ): Promise<void> {
-    const url = new URL(this.options.origin);
-    url.pathname = "/rpc";
-    url.searchParams.set("request", JSON.stringify(request));
-    await this.options.open(url.toString());
+    const searchParams = new URLSearchParams();
+    searchParams.set("request", JSON.stringify(request));
+    await this.options.open(`${origin}/rpc?${searchParams.toString()}`);
   }
 
   public async receive(link: string): Promise<void> {
-    const url = new URL(link);
-    if (url.pathname !== "/rpc") {
-      return;
-    }
-    const response = url.searchParams.get("response");
+    const searchParams = new URLSearchParams(link.slice(link.indexOf("?") + 1));
+    const response = searchParams.get("response");
     if (!response) {
       return;
     }

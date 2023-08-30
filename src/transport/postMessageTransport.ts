@@ -1,8 +1,10 @@
 import { JsonRequest, JsonResponse, Transport } from "../types";
 
 export interface PostMessageTransportOptions {
+  /** Expected origin of incoming messages and target origin of outgoing messages */
   origin: string;
-  postMessage: (message: JsonRequest) => void;
+  /** Retrieve window to send outgoing messages to */
+  getWindow?: () => Window;
 }
 
 export class PostMessageTransport implements Transport {
@@ -32,6 +34,6 @@ export class PostMessageTransport implements Transport {
   public async send<Request extends JsonRequest = JsonRequest>(
     request: Request,
   ): Promise<void> {
-    this.options.postMessage(request);
+    this.options.getWindow?.().postMessage(request, this.options.origin);
   }
 }

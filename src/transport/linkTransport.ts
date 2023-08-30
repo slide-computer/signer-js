@@ -1,8 +1,10 @@
 import { JsonRequest, JsonResponse, Transport } from "../types";
 
 export interface LinkTransportOptions {
-  origin: string;
-  open: (url: string) => Promise<void>;
+  /** Target origin of outgoing messages */
+  origin?: string;
+  /** Handler for outgoing message urls */
+  open?: (url: string) => Promise<void>;
 }
 
 type Listener = (response: JsonResponse) => Promise<void>;
@@ -24,9 +26,12 @@ export class LinkTransport implements Transport {
   public async send<Request extends JsonRequest = JsonRequest>(
     request: Request,
   ): Promise<void> {
+    if (!this.options.origin) {
+      return;
+    }
     const searchParams = new URLSearchParams();
     searchParams.set("request", JSON.stringify(request));
-    await this.options.open(`${origin}/rpc?${searchParams.toString()}`);
+    await this.options.open?.(`${origin}/rpc?${searchParams.toString()}`);
   }
 
   public async receive(link: string): Promise<void> {

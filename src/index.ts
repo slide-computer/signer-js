@@ -37,7 +37,7 @@ import {
   DelegationIdentity,
   isDelegationValid,
 } from "@dfinity/identity";
-import { verifyChallenge } from "./challenge";
+import { isIdentitySignatureValid } from "./identity";
 
 export const ICP_NETWORK_CHAIN_ID = "icp:737ba355e855bd4b61279056603e0550";
 export const ICP_NETWORK_NAME = "Internet Computer";
@@ -90,7 +90,7 @@ export interface PermissionResponseResult {
     publicKey: PublicKey;
     signature: Signature;
     ledger?: {
-      subaccounts: Array<{
+      subaccounts?: Array<{
         bytes: ArrayBuffer;
         name?: string;
       }>;
@@ -177,7 +177,7 @@ export class WalletAgent implements Agent {
                       : undefined,
                     ledger: identity.ledger
                       ? {
-                          subaccounts: identity.ledger.subaccounts.map(
+                          subaccounts: identity.ledger.subaccounts?.map(
                             (subaccount) => ({
                               bytes: Buffer.from(subaccount.bytes, "base64"),
                               name: subaccount.name,
@@ -188,26 +188,30 @@ export class WalletAgent implements Agent {
                   };
                 }),
               };
-              const validSignatures = await Promise.all(
-                result.identities.map(async (identity) =>
-                  verifyChallenge(
-                    new Uint8Array(identity.publicKey.toDer()),
-                    new Uint8Array(identity.signature),
-                    new Uint8Array(
-                      concat(
-                        uint8ToBuf(
-                          new TextEncoder().encode("\x0Aic-wallet-challenge"),
-                        ),
-                        uint8ToBuf(challenge),
-                      ),
-                    ),
+              const walletChallenge = new Uint8Array(
+                concat(
+                  uint8ToBuf(
+                    new TextEncoder().encode("\x0Aic-wallet-challenge"),
                   ),
+                  uint8ToBuf(challenge),
                 ),
               );
-              if (validSignatures.includes(false)) {
-                reject("Signature(s) are invalid");
-                listener();
-                return;
+              // Signature validation is done one by one, so we don't have to wait for remaining identity validations
+              // after an identity is found to be invalid. Since the validation is not native but runs in the JS thread,
+              // running them in parallel does not make a difference in performance since JS is single threaded.
+              for (const identity of result.identities) {
+                if (
+                  !(await isIdentitySignatureValid(
+                    identity.publicKey,
+                    walletChallenge,
+                    walletChallenge,
+                    identity.delegationChain,
+                  ))
+                ) {
+                  reject("Identity signature is invalid");
+                  listener();
+                  return;
+                }
               }
               resolve(result);
               listener();

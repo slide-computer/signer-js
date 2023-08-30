@@ -24,7 +24,7 @@ const SECP256K1_OID = Uint8Array.from([
   ...[0x2b, 0x81, 0x04, 0x00, 0x0a], // OID secp256k1
 ]);
 
-export const verifyChallenge = async (
+export const isSignatureValid = async (
   publicKey: Uint8Array,
   signature: Uint8Array,
   challenge: Uint8Array,

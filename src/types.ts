@@ -57,7 +57,7 @@ export type PermissionJsonResponse = JsonResponse<{
       };
     }>;
     ledger?: {
-      subaccounts: Array<{
+      subaccounts?: Array<{
         bytes: string;
         name?: string;
       }>;

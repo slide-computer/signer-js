@@ -1,25 +1,25 @@
 import { JsonArray, JsonObject, JsonValue } from "@dfinity/candid";
 
-export type JsonRequest<Params = JsonObject | JsonArray> = {
+export interface JsonRPC {
   jsonrpc: "2.0";
+}
+
+export type JsonRequest<Params = JsonObject | JsonArray> = JsonRPC & {
   id?: string | number; // Optional, not required for one way messages
   method: string;
   params?: Params; // Arguments by either name or position
 };
 
-export type JsonResponse<Result = JsonValue, Error = JsonValue> = {
-  jsonrpc: "2.0";
+export type JsonResponse<Result = JsonValue, Error = JsonValue> = JsonRPC & {
   id: string | number;
 } & ({ result: Result } | { error: Error });
 
 export interface Transport {
-  registerListener<Response extends JsonResponse = JsonResponse>(
-    listener: (response: Response) => Promise<void>,
+  registerListener<Data extends JsonRPC = JsonRPC>(
+    listener: (response: Data) => Promise<void>,
   ): Promise<() => void>;
 
-  send<Request extends JsonRequest = JsonRequest>(
-    request: Request,
-  ): Promise<void>;
+  send<Data extends JsonRPC = JsonRPC>(request: Data): Promise<void>;
 }
 
 export type PermissionJsonRequest = JsonRequest<{

@@ -19,7 +19,6 @@ import {
   SignIdentity,
   SubmitRequestType,
   SubmitResponse,
-  uint8ToBuf,
 } from "@dfinity/agent";
 import { JsonObject } from "@dfinity/candid";
 import {
@@ -155,9 +154,7 @@ export class WalletAgent implements Agent {
                   );
                   return {
                     publicKey: { toDer: () => derEncodedPublicKey },
-                    signature: uint8ToBuf(
-                      Buffer.from(identity.signature, "base64"),
-                    ) as Signature,
+                    signature: Buffer.from(identity.signature, "base64").buffer as Signature,
                     delegationChain: identity.delegationChain
                       ? DelegationChain.fromDelegations(
                           identity.delegationChain.map((item) => ({
@@ -168,9 +165,7 @@ export class WalletAgent implements Agent {
                                 Principal.fromText(target),
                               ),
                             ),
-                            signature: uint8ToBuf(
-                              Buffer.from(item.signature, "base64"),
-                            ) as Signature,
+                            signature: Buffer.from(item.signature, "base64").buffer as Signature,
                           })),
                           derEncodedPublicKey,
                         )
@@ -190,10 +185,8 @@ export class WalletAgent implements Agent {
               };
               const walletChallenge = new Uint8Array(
                 concat(
-                  uint8ToBuf(
-                    new TextEncoder().encode("\x0Aic-wallet-challenge"),
-                  ),
-                  uint8ToBuf(challenge),
+                  new TextEncoder().encode("\x0Aic-wallet-challenge").buffer,
+                  challenge,
                 ),
               );
               // Signature validation is done one by one, so we don't have to wait for remaining identity validations
@@ -304,7 +297,7 @@ export class WalletAgent implements Agent {
           }
           if ("result" in response) {
             resolveReadStateResponse({
-              certificate: uint8ToBuf(Buffer.from(response.result.certificate)),
+              certificate: Buffer.from(response.result.certificate).buffer,
             });
             listener();
           }

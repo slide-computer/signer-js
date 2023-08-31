@@ -1,4 +1,4 @@
-import { JsonRequest, JsonResponse, Transport } from "../types";
+import { JsonRPC, Transport } from "../types";
 
 export interface PostMessageTransportOptions {
   /** Expected origin of incoming messages and target origin of outgoing messages */
@@ -10,8 +10,8 @@ export interface PostMessageTransportOptions {
 export class PostMessageTransport implements Transport {
   constructor(private options: PostMessageTransportOptions) {}
 
-  public async registerListener<Response extends JsonResponse = JsonResponse>(
-    listener: (response: Response) => Promise<void>,
+  public async registerListener<Data extends JsonRPC = JsonRPC>(
+    listener: (data: Data) => Promise<void>,
   ): Promise<() => void> {
     const messageListener = async (event: MessageEvent) => {
       if (
@@ -31,9 +31,7 @@ export class PostMessageTransport implements Transport {
     };
   }
 
-  public async send<Request extends JsonRequest = JsonRequest>(
-    request: Request,
-  ): Promise<void> {
-    this.options.getWindow?.().postMessage(request, this.options.origin);
+  public async send<Data extends JsonRPC = JsonRPC>(data: Data): Promise<void> {
+    this.options.getWindow?.().postMessage(data, this.options.origin);
   }
 }

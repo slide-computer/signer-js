@@ -1,4 +1,4 @@
-import { JsonRequest, JsonResponse, Transport } from "../types";
+import { JsonRPC, Transport } from "../types";
 
 export interface LinkTransportOptions {
   /** Target origin of outgoing messages */
@@ -7,15 +7,17 @@ export interface LinkTransportOptions {
   open?: (url: string) => Promise<void>;
 }
 
-type Listener = (response: JsonResponse) => Promise<void>;
+type Listener = (data: JsonRPC) => Promise<void>;
+
+type SearchParam = "request" | "response";
 
 export class LinkTransport implements Transport {
   private listeners: Listener[] = [];
 
   constructor(private options: LinkTransportOptions) {}
 
-  public async registerListener<Response extends JsonResponse = JsonResponse>(
-    listener: (response: Response) => Promise<void>,
+  public async registerListener<Data extends JsonRPC = JsonRPC>(
+    listener: (data: Data) => Promise<void>,
   ): Promise<() => void> {
     this.listeners.push(listener as Listener);
     return () => {
@@ -23,20 +25,26 @@ export class LinkTransport implements Transport {
     };
   }
 
-  public async send<Request extends JsonRequest = JsonRequest>(
-    request: Request,
+  public async send<Data extends JsonRPC = JsonRPC>(
+    data: Data,
+    param: SearchParam = "request",
   ): Promise<void> {
     if (!this.options.origin) {
       return;
     }
     const searchParams = new URLSearchParams();
-    searchParams.set("request", JSON.stringify(request));
-    await this.options.open?.(`${origin}/rpc?${searchParams.toString()}`);
+    searchParams.set(param, JSON.stringify(data));
+    await this.options.open?.(
+      `${this.options.origin}/rpc?${searchParams.toString()}`,
+    );
   }
 
-  public async receive(link: string): Promise<void> {
+  public async receive(
+    link: string,
+    param: SearchParam = "response",
+  ): Promise<void> {
     const searchParams = new URLSearchParams(link.slice(link.indexOf("?") + 1));
-    const response = searchParams.get("response");
+    const response = searchParams.get(param);
     if (!response) {
       return;
     }

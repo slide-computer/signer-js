@@ -1,4 +1,4 @@
-import { JsonRequest, JsonResponse, Transport } from "../types";
+import { JsonRPC, Transport } from "../types";
 
 export interface MixedTransportOptions {
   incoming: Pick<Transport, "registerListener">;
@@ -8,15 +8,13 @@ export interface MixedTransportOptions {
 export class MixedTransport implements Transport {
   constructor(private options: MixedTransportOptions) {}
 
-  public async registerListener<Response extends JsonResponse = JsonResponse>(
-    listener: (response: Response) => Promise<void>,
+  public async registerListener<Data extends JsonRPC = JsonRPC>(
+    listener: (data: Data) => Promise<void>,
   ): Promise<() => void> {
     return this.options.incoming.registerListener(listener);
   }
 
-  public async send<Request extends JsonRequest = JsonRequest>(
-    request: Request,
-  ): Promise<void> {
-    return this.options.outgoing.send(request);
+  public async send<Data extends JsonRPC = JsonRPC>(data: Data): Promise<void> {
+    return this.options.outgoing.send(data);
   }
 }

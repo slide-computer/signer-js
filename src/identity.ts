@@ -1,4 +1,4 @@
-import { concat, PublicKey, requestIdOf, uint8ToBuf } from "@dfinity/agent";
+import { concat, PublicKey, requestIdOf } from "@dfinity/agent";
 import { DelegationChain } from "@dfinity/identity";
 import { isSignatureValid } from "./challenge";
 
@@ -50,7 +50,7 @@ export const isIdentitySignatureValid = async (
         new Uint8Array(delegationChain.delegations[i].signature),
         new Uint8Array(
           concat(
-            uint8ToBuf(DELEGATION_DOMAIN_SEP),
+            DELEGATION_DOMAIN_SEP.buffer,
             requestIdOf(delegationChain.delegations[i].delegation),
           ),
         ),

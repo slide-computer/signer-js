@@ -1,24 +1,31 @@
-import { concat, PublicKey, requestIdOf } from "@dfinity/agent";
+import {
+  ValidateCanisterSignatureParams,
+  ValidateChallengeSignatureParams,
+} from "./types";
 import { DelegationChain } from "@dfinity/identity";
-import { isSignatureValid } from "./challenge";
+import { isSignatureValid } from "./index";
+import { concat, requestIdOf } from "@dfinity/agent";
 
-const DELEGATION_DOMAIN_SEP = new TextEncoder().encode(
+export interface ValidateIdentitySignatureParams
+  extends ValidateChallengeSignatureParams,
+    ValidateCanisterSignatureParams {
+  delegationChain?: DelegationChain;
+}
+
+export const DELEGATION_DOMAIN_SEP = new TextEncoder().encode(
   "\x1Aic-request-auth-delegation",
 );
 
-export const isIdentitySignatureValid = async (
-  publicKey: PublicKey,
-  challenge: Uint8Array,
-  signature: Uint8Array,
-  delegationChain?: DelegationChain,
-): Promise<boolean> => {
+export const isIdentitySignatureValid = async ({
+  publicKey,
+  signature,
+  challenge,
+  rootKey,
+  delegationChain,
+}: ValidateIdentitySignatureParams): Promise<boolean> => {
   // Only need to check if signature is valid
   if (!delegationChain) {
-    return isSignatureValid(
-      new Uint8Array(publicKey.toDer()),
-      new Uint8Array(signature),
-      new Uint8Array(challenge),
-    );
+    return isSignatureValid({ publicKey, signature, challenge, rootKey });
   }
 
   // A delegation chain without delegations cannot be valid
@@ -41,20 +48,18 @@ export const isIdentitySignatureValid = async (
     }
     // Check if signature is valid
     if (
-      !(await isSignatureValid(
-        new Uint8Array(
+      !(await isSignatureValid({
+        publicKey:
           i === 0
-            ? publicKey.toDer()
+            ? publicKey
             : delegationChain.delegations[i - 1].delegation.pubkey,
+        signature: delegationChain.delegations[i].signature,
+        challenge: concat(
+          DELEGATION_DOMAIN_SEP.buffer,
+          requestIdOf(delegationChain.delegations[i].delegation),
         ),
-        new Uint8Array(delegationChain.delegations[i].signature),
-        new Uint8Array(
-          concat(
-            DELEGATION_DOMAIN_SEP.buffer,
-            requestIdOf(delegationChain.delegations[i].delegation),
-          ),
-        ),
-      ))
+        rootKey,
+      }))
     ) {
       return false;
     }
@@ -77,9 +82,10 @@ export const isIdentitySignatureValid = async (
   }
 
   // Check if chain up till now is a valid delegation chain for the challenge
-  return isSignatureValid(
-    new Uint8Array(signingPublicKey),
-    new Uint8Array(signature),
-    new Uint8Array(challenge),
-  );
+  return isSignatureValid({
+    publicKey: signingPublicKey,
+    signature,
+    challenge,
+    rootKey,
+  });
 };

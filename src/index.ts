@@ -27,7 +27,7 @@ import {
   PermissionJsonRequest,
   PermissionJsonResponse,
   Transport,
-} from "./types";
+} from "./transport";
 import { Buffer } from "buffer";
 import { Principal } from "@dfinity/principal";
 import {
@@ -36,7 +36,7 @@ import {
   DelegationIdentity,
   isDelegationValid,
 } from "@dfinity/identity";
-import { isIdentitySignatureValid } from "./identity";
+import { isIdentitySignatureValid } from "./signature/identity";
 
 export const ICP_NETWORK_CHAIN_ID = "icp:737ba355e855bd4b61279056603e0550";
 export const ICP_NETWORK_NAME = "Internet Computer";
@@ -154,7 +154,8 @@ export class WalletAgent implements Agent {
                   );
                   return {
                     publicKey: { toDer: () => derEncodedPublicKey },
-                    signature: Buffer.from(identity.signature, "base64").buffer as Signature,
+                    signature: Buffer.from(identity.signature, "base64")
+                      .buffer as Signature,
                     delegationChain: identity.delegationChain
                       ? DelegationChain.fromDelegations(
                           identity.delegationChain.map((item) => ({
@@ -165,7 +166,8 @@ export class WalletAgent implements Agent {
                                 Principal.fromText(target),
                               ),
                             ),
-                            signature: Buffer.from(item.signature, "base64").buffer as Signature,
+                            signature: Buffer.from(item.signature, "base64")
+                              .buffer as Signature,
                           })),
                           derEncodedPublicKey,
                         )
@@ -194,12 +196,13 @@ export class WalletAgent implements Agent {
               // running them in parallel does not make a difference in performance since JS is single threaded.
               for (const identity of result.identities) {
                 if (
-                  !(await isIdentitySignatureValid(
-                    identity.publicKey,
-                    walletChallenge,
-                    walletChallenge,
-                    identity.delegationChain,
-                  ))
+                  !(await isIdentitySignatureValid({
+                    publicKey: identity.publicKey.toDer(),
+                    signature: identity.signature,
+                    challenge: walletChallenge,
+                    rootKey: this.rootKey,
+                    delegationChain: identity.delegationChain,
+                  }))
                 ) {
                   reject("Identity signature is invalid");
                   listener();
@@ -484,5 +487,3 @@ export class WalletAgent implements Agent {
 }
 
 export * from "./transport";
-export * from "./challenge";
-export * from "./types";

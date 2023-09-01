@@ -1,3 +1,4 @@
+export * from "./types";
 export * from "./linkTransport";
 export * from "./mixedTransport";
 export * from "./postMessageTransport";

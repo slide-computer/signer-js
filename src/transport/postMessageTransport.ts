@@ -1,4 +1,4 @@
-import { JsonRPC, Transport } from "../types";
+import { JsonRPC, Transport } from "./types";
 
 export interface PostMessageTransportOptions {
   /** Expected origin of incoming messages and target origin of outgoing messages */

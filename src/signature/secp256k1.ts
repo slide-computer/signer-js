@@ -1,4 +1,4 @@
-import { ValidateSignatureParams } from "./types";
+import { ValidateChallengeSignatureParams } from "./types";
 import { Buffer } from "buffer";
 import { sha256 } from "@noble/hashes/sha256";
 import { unwrapDER } from "@dfinity/identity";
@@ -16,7 +16,7 @@ export const isSecp256k1SignatureValid = async ({
   publicKey,
   signature,
   challenge,
-}: ValidateSignatureParams): Promise<boolean> => {
+}: ValidateChallengeSignatureParams): Promise<boolean> => {
   return secp256k1.verify(
     Buffer.from(signature).toString("hex"),
     Buffer.from(sha256(new Uint8Array(challenge))).toString("hex"),

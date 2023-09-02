@@ -77,7 +77,7 @@ export type CanisterCallJsonRequest = JsonRequest<{
   method: string;
   arg: string;
   publicKey?: string;
-  challenge?: string;
+  signature?: string;
 }>;
 
 export type CanisterCallJsonResponse = JsonResponse<{

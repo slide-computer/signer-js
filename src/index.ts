@@ -1,11 +1,10 @@
 import {
   Agent,
   ApiQueryResponse,
-  CallOptions,
   Certificate,
+  compare,
   concat,
   CreateCertificateOptions,
-  Expiry,
   HttpAgent,
   Identity,
   PublicKey,
@@ -20,7 +19,7 @@ import {
   SubmitRequestType,
   SubmitResponse,
 } from "@dfinity/agent";
-import { JsonObject } from "@dfinity/candid";
+import { JsonObject, lebEncode } from "@dfinity/candid";
 import {
   CanisterCallJsonRequest,
   CanisterCallJsonResponse,
@@ -36,12 +35,10 @@ import {
   DelegationIdentity,
   isDelegationValid,
 } from "@dfinity/identity";
-import { isIdentitySignatureValid } from "./signature/identity";
+import { isIdentitySignatureValid } from "./signature";
 
 export const ICP_NETWORK_CHAIN_ID = "icp:737ba355e855bd4b61279056603e0550";
 export const ICP_NETWORK_NAME = "Internet Computer";
-// Default delta for ingress expiry is 5 minutes
-const DEFAULT_INGRESS_EXPIRY_DELTA_IN_MSECS = 5 * 60 * 1000;
 
 interface WalletAgentOptions {
   transport: Transport;
@@ -109,7 +106,7 @@ export class WalletAgent implements Agent {
   public delegationChain?: DelegationChain;
 
   private agent: HttpAgent;
-  private readStateResponses: Record<string, Promise<ReadStateResponse>> = {};
+  private readStateResponses: Record<string, ReadStateResponse> = {};
   private delegatedRequests: string[] = [];
 
   constructor(private options: WalletAgentOptions) {
@@ -245,7 +242,11 @@ export class WalletAgent implements Agent {
 
   public async call(
     canisterId: Principal | string,
-    fields: CallOptions,
+    options: {
+      methodName: string;
+      arg: ArrayBuffer;
+      effectiveCanisterId?: Principal | string;
+    },
   ): Promise<SubmitResponse> {
     if (
       this.delegationChain &&
@@ -254,7 +255,7 @@ export class WalletAgent implements Agent {
     ) {
       const submitResponse = await this.agent.call(
         canisterId,
-        fields,
+        options,
         DelegationIdentity.fromDelegation(
           this.options.identity,
           this.delegationChain,
@@ -270,78 +271,112 @@ export class WalletAgent implements Agent {
         "Sender is not defined, make sure to set sender after permission request",
       );
     }
-    const requestId = requestIdOf({
-      request_type: SubmitRequestType.Call,
-      canister_id: Principal.from(canisterId),
-      method_name: fields.methodName,
-      arg: fields.arg,
-      sender: this.sender,
-      ingress_expiry: new Expiry(DEFAULT_INGRESS_EXPIRY_DELTA_IN_MSECS),
-    });
-    const id = Buffer.from(requestId).toString("base64");
-    let resolveReadStateResponse: (value: ReadStateResponse) => void;
-    let rejectReadStateResponse: (reason?: any) => void;
-    this.readStateResponses[id] = new Promise<ReadStateResponse>(
-      (resolve, reject) => {
-        resolveReadStateResponse = resolve;
-        rejectReadStateResponse = reject;
-      },
-    );
-    const listener =
-      await this.options.transport.registerListener<CanisterCallJsonResponse>(
-        async (response) => {
-          if (response.id !== id) {
-            return;
-          }
-          if ("error" in response) {
-            rejectReadStateResponse(response.error);
-            listener();
-            return;
-          }
-          if ("result" in response) {
-            resolveReadStateResponse({
-              certificate: Buffer.from(response.result.certificate).buffer,
-            });
-            listener();
-          }
+    return new Promise<SubmitResponse>(async (resolve, reject) => {
+      const id = this.getCrypto().randomUUID();
+      const listener =
+        await this.options.transport.registerListener<CanisterCallJsonResponse>(
+          async (response) => {
+            if (response.id !== id) {
+              return;
+            }
+            if ("error" in response) {
+              reject(response.error);
+              listener();
+              return;
+            }
+            if ("result" in response) {
+              if (
+                response.result.contentMap.request_type !==
+                  SubmitRequestType.Call ||
+                response.result.contentMap.canister_id !==
+                  Principal.from(canisterId).toText() ||
+                response.result.contentMap.method_name !== options.methodName ||
+                compare(
+                  Buffer.from(response.result.contentMap.arg, "base64").buffer,
+                  options.arg,
+                ) !== 0 ||
+                response.result.contentMap.sender !== this.sender!.toText()
+              ) {
+                reject("Received invalid content map from wallet");
+                listener();
+                return;
+              }
+              const requestId = requestIdOf({
+                request_type: SubmitRequestType.Call,
+                canister_id: Principal.from(canisterId),
+                method_name: options.methodName,
+                arg: options.arg,
+                sender: this.sender,
+                ingress_expiry: {
+                  toHash: () =>
+                    lebEncode(
+                      BigInt(response.result.contentMap.ingress_expiry),
+                    ),
+                },
+                ...(response.result.contentMap.nonce
+                  ? {
+                      nonce: Buffer.from(
+                        response.result.contentMap.nonce,
+                        "base64",
+                      ).buffer,
+                    }
+                  : {}),
+              });
+              this.readStateResponses[
+                Buffer.from(requestId).toString("base64")
+              ] = {
+                certificate: Buffer.from(response.result.certificate, "base64")
+                  .buffer,
+              };
+              resolve({
+                requestId,
+                response: {
+                  ok: true,
+                  status: 200,
+                  statusText: "Call has been sent over JSON-RPC",
+                  body: null,
+                  headers: [],
+                },
+              });
+              listener();
+            }
+          },
+        );
+      const canisterCallSignature = requestIdOf({
+        request_type: SubmitRequestType.Call,
+        canister_id: Principal.from(canisterId),
+        method_name: options.methodName,
+        arg: options.arg,
+        sender: this.sender,
+        // Expiry is missing here since it's defined by the wallet making the actual call
+      });
+      await this.options.transport.send<CanisterCallJsonRequest>({
+        id,
+        jsonrpc: "2.0",
+        method: "canister_call",
+        params: {
+          version: 1,
+          network: {
+            chainId: ICP_NETWORK_CHAIN_ID,
+            name: ICP_NETWORK_NAME,
+          },
+          canisterId: Principal.from(canisterId).toText(),
+          sender: this.sender!.toText(),
+          method: options.methodName,
+          arg: Buffer.from(options.arg).toString("base64"),
+          publicKey: this.options.identity
+            ? Buffer.from(
+                this.options.identity.getPublicKey().toDer(),
+              ).toString("base64")
+            : undefined,
+          signature: this.options.identity
+            ? Buffer.from(
+                await this.options.identity.sign(canisterCallSignature),
+              ).toString("base64")
+            : undefined,
         },
-      );
-    await this.options.transport.send<CanisterCallJsonRequest>({
-      id,
-      jsonrpc: "2.0",
-      method: "canister_call",
-      params: {
-        version: 1,
-        network: {
-          chainId: ICP_NETWORK_CHAIN_ID,
-          name: ICP_NETWORK_NAME,
-        },
-        canisterId: Principal.from(canisterId).toText(),
-        sender: this.sender!.toText(),
-        method: fields.methodName,
-        arg: Buffer.from(fields.arg).toString("base64"),
-        publicKey: this.options.identity
-          ? Buffer.from(this.options.identity.getPublicKey().toDer()).toString(
-              "base64",
-            )
-          : undefined,
-        challenge: this.options.identity
-          ? Buffer.from(await this.options.identity.sign(requestId)).toString(
-              "base64",
-            )
-          : undefined,
-      },
+      });
     });
-    return {
-      requestId,
-      response: {
-        ok: true,
-        status: 200,
-        statusText: "Call has been sent over JSON-RPC",
-        body: null,
-        headers: [],
-      },
-    };
   }
 
   public async fetchRootKey(): Promise<ArrayBuffer> {
@@ -371,14 +406,10 @@ export class WalletAgent implements Agent {
       );
     }
     // Upgrade query request to a call
-    const submitResponse = await this.call(canisterId, {
-      ...options,
-      effectiveCanisterId: canisterId,
-    });
-    const state =
-      await this.readStateResponses[
-        Buffer.from(submitResponse.requestId).toString("base64")
-      ];
+    const submitResponse = await this.call(canisterId, options);
+    const id = Buffer.from(submitResponse.requestId).toString("base64");
+    const state = this.readStateResponses[id];
+    delete this.readStateResponses[id];
     if (this.rootKey == null) {
       throw new Error("Agent root key not initialized");
     }
@@ -412,10 +443,10 @@ export class WalletAgent implements Agent {
   }
 
   public async createReadStateRequest(
-    fields: ReadStateOptions,
+    options: ReadStateOptions,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any> {
-    const id = this.requestIdFromReadStateOptions(fields);
+    const id = this.requestIdFromReadStateOptions(options);
     if (
       id &&
       this.delegatedRequests.includes(id) &&
@@ -423,7 +454,7 @@ export class WalletAgent implements Agent {
       this.options.identity
     ) {
       return this.agent.createReadStateRequest(
-        fields,
+        options,
         DelegationIdentity.fromDelegation(
           this.options.identity,
           this.delegationChain,
@@ -433,13 +464,13 @@ export class WalletAgent implements Agent {
   }
 
   public async readState(
-    effectiveCanisterId: Principal | string,
-    fields: ReadStateOptions,
+    canisterId: Principal | string,
+    options: ReadStateOptions,
     identity?: Identity | Promise<Identity>,
     // eslint-disable-next-line
     request?: any,
   ): Promise<ReadStateResponse> {
-    const id = this.requestIdFromReadStateOptions(fields);
+    const id = this.requestIdFromReadStateOptions(options);
     if (
       id &&
       this.delegatedRequests.includes(id) &&
@@ -447,8 +478,8 @@ export class WalletAgent implements Agent {
       this.options.identity
     ) {
       return this.agent.readState(
-        effectiveCanisterId,
-        fields,
+        canisterId,
+        options,
         DelegationIdentity.fromDelegation(
           this.options.identity,
           this.delegationChain,
@@ -487,3 +518,4 @@ export class WalletAgent implements Agent {
 }
 
 export * from "./transport";
+export * from "./signature";

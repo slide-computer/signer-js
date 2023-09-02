@@ -1,4 +1,5 @@
 import { JsonRPC, Transport } from "./types";
+import { Buffer } from "buffer";
 
 export interface LinkTransportOptions {
   /** Target origin of outgoing messages */
@@ -10,6 +11,14 @@ export interface LinkTransportOptions {
 type Listener = (data: JsonRPC) => Promise<void>;
 
 type SearchParam = "request" | "response";
+
+export const base64ToBase64url = (value: string) =>
+  value.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+
+export const base64urlToBase64 = (value: string) => {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  return base64 + "=".repeat(base64.length % 4);
+};
 
 export class LinkTransport implements Transport {
   private listeners: Listener[] = [];
@@ -33,7 +42,12 @@ export class LinkTransport implements Transport {
       return;
     }
     const searchParams = new URLSearchParams();
-    searchParams.set(param, JSON.stringify(data));
+    searchParams.set(
+      param,
+      base64ToBase64url(
+        Buffer.from(JSON.stringify(data), "utf8").toString("base64"),
+      ),
+    );
     await this.options.open?.(
       `${this.options.origin}/rpc?${searchParams.toString()}`,
     );
@@ -48,7 +62,9 @@ export class LinkTransport implements Transport {
     if (!response) {
       return;
     }
-    const data = JSON.parse(response);
+    const data = JSON.parse(
+      Buffer.from(base64urlToBase64(response), "base64").toString("utf8"),
+    );
     if (
       typeof data !== "object" ||
       !data ||

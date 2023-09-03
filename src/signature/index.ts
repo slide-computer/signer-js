@@ -3,7 +3,7 @@ import {
   ValidateChallengeSignatureParams,
 } from "./types";
 import { ECDSA_P256_OID, isECDSASignatureValid } from "./p256";
-import { ED25519_OID } from "./ed25519";
+import { ED25519_OID, isEd25519SignatureValid } from "./ed25519";
 import { isSecp256k1SignatureValid, SECP256K1_OID } from "./secp256k1";
 import { compare } from "@dfinity/agent";
 import { CANISTER_SIGNATURE_OID, isCanisterSignatureValid } from "./canister";
@@ -25,7 +25,7 @@ export const isSignatureValid = (
       return isECDSASignatureValid(params);
     }
     if (compare(oid, ED25519_OID.buffer) === 0) {
-      return isECDSASignatureValid(params);
+      return isEd25519SignatureValid(params);
     }
     if (compare(oid, SECP256K1_OID.buffer) === 0) {
       return isSecp256k1SignatureValid(params);

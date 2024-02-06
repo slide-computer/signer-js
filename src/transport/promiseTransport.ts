@@ -1,18 +1,18 @@
-import { JsonRPC, Transport } from "./types";
+import { JsonRequest, JsonResponse, JsonRPC, Transport } from "./types";
 
 export interface PromiseTransportOptions {
-  call: (data: JsonRPC) => Promise<JsonRPC | void>;
+  call: (data: JsonRPC[]) => Promise<JsonRPC[] | void>;
 }
 
-type Listener = (data: JsonRPC) => Promise<void>;
+type Listener = (data: JsonRPC[]) => Promise<void>;
 
 export class PromiseTransport implements Transport {
   private listeners: Listener[] = [];
 
   constructor(private options: PromiseTransportOptions) {}
 
-  public async registerListener<Data extends JsonRPC = JsonRPC>(
-    listener: (data: Data) => Promise<void>,
+  public async registerListener(
+    listener: (responses: JsonResponse[]) => Promise<void>,
   ): Promise<() => void> {
     this.listeners.push(listener as Listener);
     return () => {
@@ -20,8 +20,8 @@ export class PromiseTransport implements Transport {
     };
   }
 
-  public async send<Data extends JsonRPC = JsonRPC>(data: Data): Promise<void> {
-    const response = await this.options.call(data);
+  public async send(requests: JsonRequest[]): Promise<void> {
+    const response = await this.options.call(requests);
     if (!response) {
       return;
     }

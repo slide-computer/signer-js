@@ -1,4 +1,4 @@
-import { JsonRPC, Transport } from "./types";
+import { JsonRequest, JsonResponse, Transport } from "./types";
 
 export interface PostMessageTransportOptions {
   /** Expected origin of incoming messages and target origin of outgoing messages */
@@ -10,16 +10,20 @@ export interface PostMessageTransportOptions {
 export class PostMessageTransport implements Transport {
   constructor(private options: PostMessageTransportOptions) {}
 
-  public async registerListener<Data extends JsonRPC = JsonRPC>(
-    listener: (data: Data) => Promise<void>,
+  public async registerListener(
+    listener: (responses: JsonResponse[]) => Promise<void>,
   ): Promise<() => void> {
     const messageListener = async (event: MessageEvent) => {
       if (
         event.origin !== this.options.origin ||
-        typeof event.data !== "object" ||
-        !event.data ||
-        !("jsonrpc" in event.data) ||
-        event.data.jsonrpc !== "2.0"
+        !Array.isArray(event.data) ||
+        event.data.some(
+          (response) =>
+            typeof response !== "object" ||
+            !response ||
+            !("jsonrpc" in response) ||
+            response.jsonrpc !== "2.0",
+        )
       ) {
         return;
       }
@@ -31,7 +35,7 @@ export class PostMessageTransport implements Transport {
     };
   }
 
-  public async send<Data extends JsonRPC = JsonRPC>(data: Data): Promise<void> {
-    this.options.getWindow?.().postMessage(data, this.options.origin);
+  public async send(requests: JsonRequest[]): Promise<void> {
+    this.options.getWindow?.().postMessage(requests, this.options.origin);
   }
 }

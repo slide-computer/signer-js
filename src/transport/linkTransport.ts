@@ -1,4 +1,4 @@
-import { JsonRPC, Transport } from "./types";
+import { JsonRequest, JsonResponse, JsonRPC, Transport } from "./types";
 import { Buffer } from "buffer";
 
 export interface LinkTransportOptions {
@@ -8,9 +8,9 @@ export interface LinkTransportOptions {
   open?: (url: string) => Promise<void>;
 }
 
-type Listener = (data: JsonRPC) => Promise<void>;
+type Listener = (data: JsonRPC[]) => Promise<void>;
 
-type SearchParam = "request" | "response";
+type SearchParam = "requests" | "responses";
 
 export const base64ToBase64url = (value: string) =>
   value.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
@@ -25,8 +25,8 @@ export class LinkTransport implements Transport {
 
   constructor(private options: LinkTransportOptions) {}
 
-  public async registerListener<Data extends JsonRPC = JsonRPC>(
-    listener: (data: Data) => Promise<void>,
+  public async registerListener(
+    listener: (responses: JsonResponse[]) => Promise<void>,
   ): Promise<() => void> {
     this.listeners.push(listener as Listener);
     return () => {
@@ -34,9 +34,9 @@ export class LinkTransport implements Transport {
     };
   }
 
-  public async send<Data extends JsonRPC = JsonRPC>(
-    data: Data,
-    param: SearchParam = "request",
+  public async send(
+    requests: JsonRequest[],
+    param: SearchParam = "requests",
   ): Promise<void> {
     if (!this.options.origin) {
       return;
@@ -45,7 +45,7 @@ export class LinkTransport implements Transport {
     searchParams.set(
       param,
       base64ToBase64url(
-        Buffer.from(JSON.stringify(data), "utf8").toString("base64"),
+        Buffer.from(JSON.stringify(requests), "utf8").toString("base64"),
       ),
     );
     await this.options.open?.(
@@ -55,24 +55,28 @@ export class LinkTransport implements Transport {
 
   public async receive(
     link: string,
-    param: SearchParam = "response",
+    param: SearchParam = "responses",
   ): Promise<void> {
     const searchParams = new URLSearchParams(link.slice(link.indexOf("?") + 1));
-    const response = searchParams.get(param);
-    if (!response) {
+    const value = searchParams.get(param);
+    if (!value) {
       return;
     }
-    const data = JSON.parse(
-      Buffer.from(base64urlToBase64(response), "base64").toString("utf8"),
+    const responses = JSON.parse(
+      Buffer.from(base64urlToBase64(value), "base64").toString("utf8"),
     );
     if (
-      typeof data !== "object" ||
-      !data ||
-      !("jsonrpc" in data) ||
-      data.jsonrpc !== "2.0"
+      !Array.isArray(responses) ||
+      responses.some(
+        (response) =>
+          typeof response !== "object" ||
+          !response ||
+          !("jsonrpc" in response) ||
+          response.jsonrpc !== "2.0",
+      )
     ) {
       return;
     }
-    await Promise.all(this.listeners.map((listener) => listener(data)));
+    await Promise.all(this.listeners.map((listener) => listener(responses)));
   }
 }

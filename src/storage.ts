@@ -1,19 +1,16 @@
 import { createStore, del, get, set, UseStore } from "idb-keyval";
-
-export const KEY_STORAGE_KEY = "identity";
-export const KEY_STORAGE_DELEGATION = "delegation";
-export const KEY_VECTOR = "iv";
-// Increment if any fields are modified
-export const DB_VERSION = 1;
-
-export const isBrowser = typeof window !== "undefined";
+import {
+  DelegationChain,
+  ECDSAKeyIdentity,
+  Ed25519KeyIdentity,
+} from "@dfinity/identity";
 
 export type StoredKey = string | CryptoKeyPair;
 
 /**
  * Interface for persisting user delegation data
  */
-export interface SignerAgentStorage {
+export interface SignerStorage {
   get(key: string): Promise<StoredKey | undefined>;
 
   set(key: string, value: StoredKey): Promise<void>;
@@ -22,11 +19,11 @@ export interface SignerAgentStorage {
 }
 
 /**
- * Legacy implementation of SignerAgentStorage, for use where IndexedDb is not available
+ * Legacy implementation of SignerStorage, for use where IndexedDb is not available
  */
-export class LocalStorage implements SignerAgentStorage {
+export class LocalStorage implements SignerStorage {
   constructor(
-    public readonly prefix = "ic-",
+    public readonly prefix = "signer-",
     private readonly _localStorage?: Storage,
   ) {}
 
@@ -70,13 +67,16 @@ export class LocalStorage implements SignerAgentStorage {
  * IdbStorage is an interface for simple storage of string key-value pairs built on idb-keyval
  *
  * It replaces {@link LocalStorage}
- * @see implements {@link SignerAgentStorage}
+ * @see implements {@link SignerStorage}
  */
-export class IdbStorage implements SignerAgentStorage {
+export class IdbStorage implements SignerStorage {
   private _store?: UseStore;
 
   get store() {
-    return this._store ?? createStore("signer-agent-db", "signer-agent-store");
+    if (!this._store) {
+      this._store = createStore("signer-db", "signer-store");
+    }
+    return this._store;
   }
 
   public async get(key: string) {
@@ -91,3 +91,58 @@ export class IdbStorage implements SignerAgentStorage {
     return del(key, this.store);
   }
 }
+
+export const getIdentity = async (key: string, storage: SignerStorage) => {
+  const value = await storage.get(`identity-${key}`);
+  if (!value) {
+    return;
+  }
+  return typeof value === "string"
+    ? Ed25519KeyIdentity.fromJSON(value)
+    : ECDSAKeyIdentity.fromKeyPair(value);
+};
+
+export const setIdentity = async (
+  key: string,
+  identity: Ed25519KeyIdentity | ECDSAKeyIdentity,
+  storage: SignerStorage,
+) => {
+  const value =
+    identity instanceof Ed25519KeyIdentity
+      ? JSON.stringify(identity.toJSON())
+      : identity.getKeyPair();
+  return storage.set(`identity-${key}`, value);
+};
+
+export const removeIdentity = async (key: string, storage: SignerStorage) => {
+  return storage.remove(`identity-${key}`);
+};
+
+export const getDelegationChain = async (
+  key: string,
+  storage: SignerStorage,
+) => {
+  const json = await storage.get(`delegation-${key}`);
+  if (!json || typeof json !== "string") {
+    return;
+  }
+  return DelegationChain.fromJSON(json);
+};
+
+export const setDelegationChain = async (
+  key: string,
+  delegationChain: DelegationChain,
+  storage: SignerStorage,
+) => {
+  return storage.set(
+    `delegation-${key}`,
+    JSON.stringify(delegationChain.toJSON()),
+  );
+};
+
+export const removeDelegationChain = async (
+  key: string,
+  storage: SignerStorage,
+) => {
+  return storage.remove(`delegation-${key}`);
+};

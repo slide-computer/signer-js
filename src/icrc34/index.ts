@@ -1,1 +1,1 @@
-export * from "./getDelegation";
+export * from "./getGlobalDelegation";

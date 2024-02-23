@@ -21,7 +21,6 @@ import {
 import { JsonObject } from "@dfinity/candid";
 import { Principal } from "@dfinity/principal";
 import {
-  DelegationChain,
   DelegationIdentity,
   ECDSAKeyIdentity,
   Ed25519KeyIdentity,
@@ -29,7 +28,14 @@ import {
 } from "@dfinity/identity";
 import { Buffer } from "buffer";
 import { Signer } from "./signer";
-import { IdbStorage, SignerAgentStorage } from "./storage";
+import {
+  getDelegationChain,
+  getIdentity,
+  IdbStorage,
+  setDelegationChain,
+  setIdentity,
+  SignerStorage,
+} from "./storage";
 import { decode } from "./utils/cbor";
 
 const ECDSA_KEY_LABEL = "ECDSA";
@@ -38,7 +44,8 @@ type DelegationKeyType = typeof ECDSA_KEY_LABEL | typeof ED25519_KEY_LABEL;
 
 export interface SignerAgentOptions {
   /** Signer instance that should be used to send ICRC-25 JSON-RPC messages */
-  signer: Pick<Signer, "callCanister" | "getDelegation">;
+  signer: Pick<Signer, "callCanister"> &
+    Partial<Pick<Signer, "getGlobalDelegation">>;
   /** Principal of account that should be used to make calls */
   getPrincipal: () => Promise<Principal> | Principal;
   /**
@@ -59,19 +66,19 @@ export interface SignerAgentOptions {
    * Optional storage with get, set, and remove.
    * @default uses {@link IdbStorage} by default
    */
-  storage?: SignerAgentStorage;
+  storage?: SignerStorage;
   /**
    * Optional, use delegation for calls where possible
    */
   delegation?: {
     /**
+     * Limit delegation targets to specific canisters
+     */
+    targets: Principal[];
+    /**
      * Optional identity to use for delegation
      */
     identity?: Pick<SignIdentity, "getPublicKey" | "sign">;
-    /**
-     * Optional limit delegation targets to specific canisters
-     */
-    targets?: Principal[];
     /**
      * Key type to use for the default delegation identity
      * @default 'ECDSA'
@@ -91,26 +98,26 @@ export class SignerAgentError extends Error {
 
 export class SignerAgent implements Agent {
   private agent: HttpAgent;
-  private storage: SignerAgentStorage;
+  private storage: SignerStorage;
   private readStateResponses = new Map<string, ReadStateResponse>();
   private delegatedRequestIds = new Set<string>();
 
   constructor(private options: SignerAgentOptions) {
     this.agent = options.agent ?? new HttpAgent();
-    this.storage = new IdbStorage();
+    this.storage = options.storage ?? new IdbStorage();
   }
 
   public get rootKey() {
     return this.agent.rootKey;
   }
 
-  public async getDelegationIdentity(principal: Principal) {
+  public async getDelegationIdentity(sender: Principal) {
     if (!this.options.delegation) {
       return;
     }
-    const baseIdentity = await this.getDelegationBaseIdentity(principal);
+    const baseIdentity = await this.getDelegationBaseIdentity(sender);
     const delegationChain = await this.getDelegationChain(
-      principal,
+      sender,
       baseIdentity.getPublicKey().toDer(),
     );
     if (delegationChain) {
@@ -132,6 +139,7 @@ export class SignerAgent implements Agent {
 
     // Make delegated call when possible
     if (
+      this.options.signer.getGlobalDelegation &&
       this.options.delegation &&
       (!this.options.delegation.targets ||
         this.options.delegation.targets.some(
@@ -203,6 +211,7 @@ export class SignerAgent implements Agent {
 
     // Make delegated query when possible
     if (
+      this.options.signer.getGlobalDelegation &&
       this.options.delegation &&
       (!this.options.delegation.targets ||
         this.options.delegation.targets.some(
@@ -242,6 +251,7 @@ export class SignerAgent implements Agent {
       throw new SignerAgentError("Certificate is missing reply");
     }
     return {
+      requestId: submitResponse.requestId,
       status: QueryResponseStatus.Replied,
       reply: {
         arg: certificate.lookup([...path, "reply"])!,
@@ -312,82 +322,60 @@ export class SignerAgent implements Agent {
     principal: Principal,
     publicKey: ArrayBuffer,
   ) {
-    const json = await this.storage.get(
-      `delegation-chain-${principal.toText()}-${Buffer.from(publicKey).toString("base64")}`,
-    );
-    if (json && typeof json !== "string") {
-      throw new SignerAgentError("Invalid delegation chain in storage");
+    if (!this.options.signer.getGlobalDelegation) {
+      throw new SignerAgentError(
+        "Signer is missing `getGlobalDelegation` method",
+      );
     }
+    if (!this.options.delegation) {
+      throw new SignerAgentError("Delegation config is missing in options");
+    }
+    const key = `${principal.toText()}-${Buffer.from(publicKey).toString("base64")}`;
+    const delegationChain = await getDelegationChain(key, this.storage);
     if (
-      !json ||
-      !isDelegationValid(DelegationChain.fromJSON(json), {
+      delegationChain &&
+      isDelegationValid(delegationChain, {
         scope: this.options.delegation?.targets,
       })
     ) {
-      const newDelegationChain = await this.options.signer.getDelegation({
-        principal,
-        publicKey,
-        targets: this.options.delegation?.targets,
-      });
-      await this.setDelegationChain(newDelegationChain);
-      return newDelegationChain;
+      return delegationChain;
     }
-    return DelegationChain.fromJSON(json);
-  }
-
-  private async setDelegationChain(delegationChain: DelegationChain) {
-    return this.storage.set(
-      `delegation-chain-${Principal.selfAuthenticating(new Uint8Array(delegationChain.publicKey))}-${Buffer.from(delegationChain.delegations.slice(-1)[0].delegation.pubkey).toString("base64")}`,
-      JSON.stringify(delegationChain.toJSON()),
-    );
-  }
-
-  private async createDelegationBaseIdentity() {
-    return this.options.delegation?.keyType === "Ed25519"
-      ? Ed25519KeyIdentity.generate(
-          this.getCrypto().getRandomValues(new Uint8Array(32)),
-        )
-      : ECDSAKeyIdentity.generate();
+    const newDelegationChain = await this.options.signer.getGlobalDelegation({
+      principal,
+      publicKey,
+      targets: this.options.delegation.targets,
+    });
+    await setDelegationChain(key, newDelegationChain, this.storage);
+    return newDelegationChain;
   }
 
   private async getDelegationBaseIdentity(sender: Principal) {
     if (this.options.delegation?.identity) {
       return this.options.delegation.identity;
     }
-    const value = await this.storage.get(
-      `delegation-identity-${sender.toText()}`,
-    );
-    if (!value) {
-      const identity = await this.createDelegationBaseIdentity();
-      await this.setDelegationBaseIdentity(sender, identity);
+    const identity = await getIdentity(sender.toText(), this.storage);
+    if (identity) {
       return identity;
     }
-    return typeof value === "string"
-      ? Ed25519KeyIdentity.fromJSON(value)
-      : ECDSAKeyIdentity.fromKeyPair(value);
+    const newIdentity = await (this.options.delegation?.keyType === "Ed25519"
+      ? Ed25519KeyIdentity.generate(
+          this.getCrypto().getRandomValues(new Uint8Array(32)),
+        )
+      : ECDSAKeyIdentity.generate());
+    await setIdentity(sender.toText(), newIdentity, this.storage);
+    return newIdentity;
   }
 
-  private async setDelegationBaseIdentity(
-    sender: Principal,
-    identity: Ed25519KeyIdentity | ECDSAKeyIdentity,
-  ) {
-    const value =
-      identity instanceof Ed25519KeyIdentity
-        ? JSON.stringify(identity.toJSON())
-        : identity.getKeyPair();
-    return this.storage.set(`delegation-identity-${sender.toText()}`, value);
-  }
-
-  private requestIdFromReadStateOptions = (
+  private requestIdFromReadStateOptions(
     options: ReadStateOptions,
-  ): RequestId | undefined => {
+  ): RequestId | undefined {
     if (options.paths.length === 1 && options.paths[0].length == 2) {
       const path = new TextDecoder().decode(options.paths[0][0]);
       if (path === "request_status") {
         return options.paths[0][1] as RequestId;
       }
     }
-  };
+  }
 
   private getCrypto(): Pick<Crypto, "getRandomValues"> {
     return this.options.crypto ?? window.crypto;

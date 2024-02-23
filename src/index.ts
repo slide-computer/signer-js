@@ -6,6 +6,7 @@ export * from "./icrc39";
 export * from "./icrc49";
 export * from "./signer";
 export * from "./agent";
+export * from "./client";
 export * from "./errors";
 export * from "./signature";
 export * from "./transport";

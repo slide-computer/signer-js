@@ -1,16 +1,17 @@
-import { JsonRequest, JsonResponse, JsonRPC, Transport } from "./types";
+import { BatchTransport, JsonRequest, JsonResponse, JsonRPC } from "./types";
 import { Buffer } from "buffer";
+import { isJsonRpcResponse } from "./utils";
 
 export interface LinkTransportOptions {
   /** Target origin of outgoing messages */
-  origin?: string;
+  origin: string;
+  /** Target endpoint of outgoing messages */
+  endpoint: string;
   /** Handler for outgoing message urls */
   open?: (url: string) => Promise<void>;
 }
 
-type Listener = (data: JsonRPC[]) => Promise<void>;
-
-type SearchParam = "requests" | "responses";
+type Listener = (data: JsonRPC) => Promise<void>;
 
 export const base64ToBase64url = (value: string) =>
   value.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
@@ -20,13 +21,21 @@ export const base64urlToBase64 = (value: string) => {
   return base64 + "=".repeat(base64.length % 4);
 };
 
-export class LinkTransport implements Transport {
+export class LinkTransportError extends Error {
+  constructor(message: string) {
+    super(message);
+    Object.setPrototypeOf(this, LinkTransportError.prototype);
+  }
+}
+
+export class LinkTransport implements BatchTransport {
   private listeners: Listener[] = [];
+  private queue: JsonRequest[] = [];
 
   constructor(private options: LinkTransportOptions) {}
 
   public async registerListener(
-    listener: (responses: JsonResponse[]) => Promise<void>,
+    listener: (responses: JsonResponse) => Promise<void>,
   ): Promise<() => void> {
     this.listeners.push(listener as Listener);
     return () => {
@@ -34,49 +43,43 @@ export class LinkTransport implements Transport {
     };
   }
 
-  public async send(
-    requests: JsonRequest[],
-    param: SearchParam = "requests",
-  ): Promise<void> {
-    if (!this.options.origin) {
-      return;
-    }
-    const searchParams = new URLSearchParams();
-    searchParams.set(
-      param,
-      base64ToBase64url(
-        Buffer.from(JSON.stringify(requests), "utf8").toString("base64"),
-      ),
-    );
-    await this.options.open?.(
-      `${this.options.origin}/rpc?${searchParams.toString()}`,
-    );
+  public async send(request: JsonRequest): Promise<void> {
+    this.queue.push(request);
   }
 
-  public async receive(
-    link: string,
-    param: SearchParam = "responses",
-  ): Promise<void> {
+  public async receive(link: string): Promise<void> {
     const searchParams = new URLSearchParams(link.slice(link.indexOf("?") + 1));
-    const value = searchParams.get(param);
+    const value = searchParams.get("messages");
     if (!value) {
       return;
     }
     const responses = JSON.parse(
       Buffer.from(base64urlToBase64(value), "base64").toString("utf8"),
     );
-    if (
-      !Array.isArray(responses) ||
-      responses.some(
-        (response) =>
-          typeof response !== "object" ||
-          !response ||
-          !("jsonrpc" in response) ||
-          response.jsonrpc !== "2.0",
-      )
-    ) {
+    if (!Array.isArray(responses) || !responses.every(isJsonRpcResponse)) {
       return;
     }
-    await Promise.all(this.listeners.map((listener) => listener(responses)));
+    await Promise.all(
+      responses.flatMap((response) =>
+        this.listeners.map((listener) => listener(response)),
+      ),
+    );
+  }
+
+  public async execute(): Promise<void> {
+    if (!this.options.origin) {
+      throw new LinkTransportError("Origin is required in options to send");
+    }
+    const searchParams = new URLSearchParams();
+    searchParams.set(
+      "messages",
+      base64ToBase64url(
+        Buffer.from(JSON.stringify(this.queue), "utf8").toString("base64"),
+      ),
+    );
+    this.queue = [];
+    await (this.options.open ?? window.open)(
+      `${this.options.origin}${this.options.endpoint}?${searchParams.toString()}`,
+    );
   }
 }

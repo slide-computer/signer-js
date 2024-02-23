@@ -31,85 +31,12 @@ export type JsonResponseResult<T extends JsonResponse> = T extends {
 
 export interface Transport {
   registerListener(
-    listener: (responses: JsonResponse[]) => Promise<void>,
+    listener: (response: JsonResponse) => Promise<void>,
   ): Promise<() => void>;
 
-  send(requests: JsonRequest[]): Promise<void>;
+  send(requests: JsonRequest): Promise<void>;
 }
 
-export type PermissionJsonRequest = JsonRequest<{
-  version: 1;
-  appMetaData: {
-    name: string;
-    icon?: string;
-  };
-  networks: Array<{
-    chainId: string;
-    name?: string;
-  }>;
-  scopes: Array<"canister_call" | "delegation">;
-  challenge: string;
-  publicKey?: string;
-  targets?: string[];
-}>;
-
-export type PermissionJsonResponse = JsonResponse<{
-  version: 1;
-  appMetaData: {
-    name: string;
-    icon?: string;
-  };
-  scopes: Array<"canister_call" | "delegation">;
-  identities: Array<{
-    publicKey: string;
-    signature: string;
-    delegationChain?: Array<{
-      signature: string;
-      delegation: {
-        publicKey: string;
-        expiration: string;
-        targets?: string[];
-      };
-    }>;
-    ledger?: {
-      subaccounts?: Array<{
-        bytes: string;
-        name?: string;
-      }>;
-    };
-  }>;
-}>;
-
-export type CanisterCallJsonRequest = JsonRequest<{
-  version: 1;
-  network: {
-    chainId: string;
-    name?: string;
-    rpcUrl?: string;
-  };
-  canisterId: string;
-  sender: string;
-  method: string;
-  arg: string;
-  publicKey?: string;
-  signature?: string;
-}>;
-
-export type CanisterCallJsonResponse = JsonResponse<{
-  version: 1;
-  network: {
-    chainId: string;
-    name?: string;
-    rpcUrl?: string;
-  };
-  contentMap: {
-    request_type: string;
-    sender: string;
-    nonce?: string;
-    ingress_expiry: string;
-    canister_id: string;
-    method_name: string;
-    arg: string;
-  };
-  certificate: string;
-}>;
+export interface BatchTransport extends Transport {
+  execute(): Promise<void>;
+}

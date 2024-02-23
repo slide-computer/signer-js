@@ -8,7 +8,7 @@ export type CallCanisterPermissionScope =
     senders?: string[];
   };
 
-export const callCanisterPermissionScope = (params: {
+export const createCallCanisterPermissionScope = (params: {
   targets?: Principal[];
   senders?: Principal[];
 }): CallCanisterPermissionScope => ({

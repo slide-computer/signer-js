@@ -15,9 +15,10 @@ export type SignedDelegation = {
   signature: string;
 };
 
-export const SIGN_CHALLENGE_PERMISSION_SCOPE: SignChallengePermissionScope = {
-  method: "icrc32_sign_challenge",
-};
+export const createSignChallengePermissionScope =
+  (): SignChallengePermissionScope => ({
+    method: "icrc32_sign_challenge",
+  });
 
 export type SignChallengeRequest = JsonRequest<
   "icrc32_sign_challenge",
@@ -30,5 +31,5 @@ export type SignChallengeRequest = JsonRequest<
 export type SignChallengeResponse = JsonResponse<{
   publicKey: string;
   signature: string;
-  delegations?: SignedDelegation[];
+  signer_delegation?: SignedDelegation[];
 }>;

@@ -1,29 +1,38 @@
 import { JsonRequest, JsonResponse, Transport } from "./types";
+import { isJsonRpcRequest, isJsonRpcResponse } from "./utils";
 
 export interface PostMessageTransportOptions {
   /** Expected origin of incoming messages and target origin of outgoing messages */
   origin: string;
-  /** Retrieve window to send outgoing messages to */
-  getWindow?: () => Window;
+  /** Get window to send outgoing messages towards */
+  getWindow: () => Window;
 }
 
 export class PostMessageTransport implements Transport {
-  constructor(private options: PostMessageTransportOptions) {}
+  private readonly waitTillReady: Promise<void>;
+
+  constructor(private options: PostMessageTransportOptions) {
+    this.waitTillReady = new Promise((resolve) => {
+      window.addEventListener("message", (event: MessageEvent) => {
+        if (
+          event.origin !== this.options.origin ||
+          !isJsonRpcRequest(event.data) ||
+          event.data.method !== "icrc29_ready"
+        ) {
+          return;
+        }
+        resolve();
+      });
+    });
+  }
 
   public async registerListener(
-    listener: (responses: JsonResponse[]) => Promise<void>,
+    listener: (response: JsonResponse) => Promise<void>,
   ): Promise<() => void> {
     const messageListener = async (event: MessageEvent) => {
       if (
         event.origin !== this.options.origin ||
-        !Array.isArray(event.data) ||
-        event.data.some(
-          (response) =>
-            typeof response !== "object" ||
-            !response ||
-            !("jsonrpc" in response) ||
-            response.jsonrpc !== "2.0",
-        )
+        !isJsonRpcResponse(event.data)
       ) {
         return;
       }
@@ -35,7 +44,9 @@ export class PostMessageTransport implements Transport {
     };
   }
 
-  public async send(requests: JsonRequest[]): Promise<void> {
-    this.options.getWindow?.().postMessage(requests, this.options.origin);
+  public async send(request: JsonRequest): Promise<void> {
+    const window = this.options.getWindow();
+    await this.waitTillReady;
+    window?.postMessage(request, this.options.origin);
   }
 }

@@ -34,7 +34,7 @@ const transport = new PostMessageTransport({
     return signerWindow;
   }
 })
-const signer = new Signer({signer});
+const signer = new Signer({transport});
 ```
 
 The signer can request permissions and use these permissions to get principals with

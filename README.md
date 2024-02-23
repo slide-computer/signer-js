@@ -27,11 +27,8 @@ let signerWindow;
 const transport = new PostMessageTransport({
   origin: SIGNER_ORIGIN,
   getWindow: () => {
-    // Open window when needed, re-use existing window when possible
-    if (!signerWindow) {
-      signerWindow = window.open(`${SIGNER_ORIGIN}/rpc`, SIGNER_WINDOW_NAME);
-      signerWindow.focus();
-    }
+    signerWindow = window.open(`${SIGNER_ORIGIN}/rpc`, SIGNER_WINDOW_NAME);
+    signerWindow.focus();
     return signerWindow;
   }
 })
@@ -58,7 +55,7 @@ import { SignerAgent } from "@slide-computer/signer";
 To get started with the signerAgent, run
 
 ```js
-const signerAgent = await SignerClient.create({
+const signerAgent = await SignerAgent.create({
   signer,
   getPrincipal: () => {
     return principals[0]; // For example, make calls as first principal

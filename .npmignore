@@ -1,5 +1,5 @@
 /src/
 /node_modules/
 /.idea/
-/.tsconfig.json
-/.tsconfig-cjs.json
+/tsconfig.json
+/tsconfig-cjs.json

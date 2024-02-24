@@ -8,7 +8,7 @@ import {
 export type StoredKey = string | CryptoKeyPair;
 
 /**
- * Interface for persisting user delegation data
+ * Interface for persisting user identity and delegation data
  */
 export interface SignerStorage {
   get(key: string): Promise<StoredKey | undefined>;

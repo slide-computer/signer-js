@@ -70,13 +70,6 @@ export interface SignerClientOptions {
   idleOptions?: IdleOptions;
 }
 
-export class SignerClientError extends Error {
-  constructor(message: string) {
-    super(message);
-    Object.setPrototypeOf(this, SignerClientError.prototype);
-  }
-}
-
 export class SignerClient {
   private idleManager: IdleManager | undefined = undefined;
 

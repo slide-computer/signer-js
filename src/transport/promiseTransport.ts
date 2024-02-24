@@ -11,9 +11,9 @@ export class PromiseTransport implements Transport {
 
   constructor(private options: PromiseTransportOptions) {}
 
-  public async registerListener(
+  public registerListener(
     listener: (response: JsonResponse) => Promise<void>,
-  ): Promise<() => void> {
+  ): () => void {
     this.listeners.push(listener as Listener);
     return () => {
       this.listeners.splice(this.listeners.indexOf(listener as Listener), 1);

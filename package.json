@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Initiate transactions and authenticate on the Internet Computer",
   "main": "./lib/cjs/index",
   "module": "./lib/esm/index",

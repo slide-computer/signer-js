@@ -8,9 +8,9 @@ export interface MixedTransportOptions {
 export class MixedTransport implements Transport {
   constructor(private options: MixedTransportOptions) {}
 
-  public async registerListener(
+  public registerListener(
     listener: (response: JsonResponse) => Promise<void>,
-  ): Promise<() => void> {
+  ): () => void {
     return this.options.incoming.registerListener(listener);
   }
 

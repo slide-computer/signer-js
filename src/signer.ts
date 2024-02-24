@@ -79,7 +79,7 @@ export class Signer {
     request: T,
   ) {
     return new Promise<JsonResponseResult<S>>(async (resolve, reject) => {
-      const listener = await this.options.transport.registerListener(
+      const listener = this.options.transport.registerListener(
         async (response) => {
           if (response.id !== request.id) {
             return;

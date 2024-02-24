@@ -9,26 +9,17 @@ export interface PostMessageTransportOptions {
 }
 
 export class PostMessageTransport implements Transport {
-  private readonly waitTillReady: Promise<void>;
+  private window?: Window;
+  private waitTillReady?: Promise<void>;
+  private readyListener?: () => void;
 
   constructor(private options: PostMessageTransportOptions) {
-    this.waitTillReady = new Promise((resolve) => {
-      window.addEventListener("message", (event: MessageEvent) => {
-        if (
-          event.origin !== this.options.origin ||
-          !isJsonRpcRequest(event.data) ||
-          event.data.method !== "icrc29_ready"
-        ) {
-          return;
-        }
-        resolve();
-      });
-    });
+    this.readyListener = this.registerReadyListener();
   }
 
-  public async registerListener(
+  public registerListener(
     listener: (response: JsonResponse) => Promise<void>,
-  ): Promise<() => void> {
+  ): () => void {
     const messageListener = async (event: MessageEvent) => {
       if (
         event.origin !== this.options.origin ||
@@ -45,8 +36,31 @@ export class PostMessageTransport implements Transport {
   }
 
   public async send(request: JsonRequest): Promise<void> {
-    const window = this.options.getWindow();
+    if (this.window?.closed) {
+      this.readyListener?.();
+      this.readyListener = this.registerReadyListener();
+    }
+    this.window = this.options.getWindow();
     await this.waitTillReady;
-    window?.postMessage(request, this.options.origin);
+    this.window.postMessage(request, this.options.origin);
+  }
+
+  private registerReadyListener() {
+    let listener: (event: MessageEvent) => void;
+    this.waitTillReady = new Promise((resolve) => {
+      listener = (event: MessageEvent) => {
+        if (
+          event.origin !== this.options.origin ||
+          !isJsonRpcRequest(event.data) ||
+          event.data.method !== "icrc29_ready"
+        ) {
+          return;
+        }
+        window.removeEventListener("message", listener);
+        resolve();
+      };
+      window.addEventListener("message", listener);
+    });
+    return () => window.removeEventListener("message", listener);
   }
 }

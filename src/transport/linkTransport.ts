@@ -34,9 +34,9 @@ export class LinkTransport implements BatchTransport {
 
   constructor(private options: LinkTransportOptions) {}
 
-  public async registerListener(
+  public registerListener(
     listener: (responses: JsonResponse) => Promise<void>,
-  ): Promise<() => void> {
+  ): () => void {
     this.listeners.push(listener as Listener);
     return () => {
       this.listeners.splice(this.listeners.indexOf(listener as Listener), 1);

@@ -27,13 +27,13 @@ let signerWindow;
 const transport = new PostMessageTransport({
   origin: SIGNER_ORIGIN,
   getWindow: () => {
-    if (!signerWindow) {
+    if (!signerWindow || signerWindow.closed) {
       signerWindow = window.open(`${SIGNER_ORIGIN}/rpc`, SIGNER_WINDOW_NAME);
     }
     signerWindow.focus();
     return signerWindow;
   }
-})
+});
 const signer = new Signer({transport});
 ```
 

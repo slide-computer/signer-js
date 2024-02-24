@@ -32,7 +32,7 @@ export type JsonResponseResult<T extends JsonResponse> = T extends {
 export interface Transport {
   registerListener(
     listener: (response: JsonResponse) => Promise<void>,
-  ): Promise<() => void>;
+  ): () => void;
 
   send(requests: JsonRequest): Promise<void>;
 }

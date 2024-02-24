@@ -84,6 +84,10 @@ export class SignerClient {
     }
   }
 
+  private get crypto(): Pick<Crypto, "getRandomValues"> {
+    return this.options.crypto ?? globalThis.crypto;
+  }
+
   public static async create(
     options: SignerClientOptions,
   ): Promise<SignerClient> {
@@ -186,7 +190,7 @@ export class SignerClient {
   private async createBaseIdentity() {
     const baseIdentity = await (this.options?.keyType === "Ed25519"
       ? Ed25519KeyIdentity.generate(
-          this.getCrypto().getRandomValues(new Uint8Array(32)),
+          this.crypto.getRandomValues(new Uint8Array(32)),
         )
       : ECDSAKeyIdentity.generate());
     await setIdentity(STORAGE_KEY, baseIdentity, this.storage);
@@ -207,9 +211,5 @@ export class SignerClient {
         location.reload();
       });
     }
-  }
-
-  private getCrypto(): Pick<Crypto, "getRandomValues"> {
-    return this.options.crypto ?? window.crypto;
   }
 }

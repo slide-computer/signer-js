@@ -65,11 +65,15 @@ export type SignerPermissionScope =
 
 export type SignerOptions = {
   transport: Transport;
-  crypto?: Pick<Crypto, "randomUUID" | "getRandomValues">;
+  crypto?: Pick<Crypto, "randomUUID">;
 };
 
 export class Signer {
   constructor(private options: SignerOptions) {}
+
+  private get crypto() {
+    return this.options.crypto ?? globalThis.crypto;
+  }
 
   public async sendRequest<T extends JsonRequest, S extends JsonResponse>(
     request: T,
@@ -98,7 +102,7 @@ export class Signer {
       SupportedStandardsRequest,
       SupportedStandardsResponse
     >({
-      id: this.getCrypto().randomUUID(),
+      id: this.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_supported_standards",
     });
@@ -110,7 +114,7 @@ export class Signer {
       RequestPermissionsRequest,
       RequestPermissionsResponse
     >({
-      id: this.getCrypto().randomUUID(),
+      id: this.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_request_permissions",
       params: { scopes },
@@ -123,7 +127,7 @@ export class Signer {
       GrantedPermissionsRequest,
       GrantedPermissionsResponse
     >({
-      id: this.getCrypto().randomUUID(),
+      id: this.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_granted_permissions",
     });
@@ -135,7 +139,7 @@ export class Signer {
       RevokePermissionsRequest,
       RevokePermissionsResponse
     >({
-      id: this.getCrypto().randomUUID(),
+      id: this.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_revoke_permissions",
       params: { scopes },
@@ -148,7 +152,7 @@ export class Signer {
       GetPrincipalsRequest,
       GetPrincipalsResponse
     >({
-      id: this.getCrypto().randomUUID(),
+      id: this.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc31_get_principals",
     });
@@ -160,7 +164,7 @@ export class Signer {
       SignChallengeRequest,
       SignChallengeResponse
     >({
-      id: this.getCrypto().randomUUID(),
+      id: this.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc32_sign_challenge",
       params: {
@@ -198,7 +202,7 @@ export class Signer {
       GetGlobalDelegationRequest,
       GetGlobalDelegationResponse
     >({
-      id: this.getCrypto().randomUUID(),
+      id: this.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc34_get_global_delegation",
       params: {
@@ -234,7 +238,7 @@ export class Signer {
       GetSessionDelegationRequest,
       GetSessionDelegationResponse
     >({
-      id: this.getCrypto().randomUUID(),
+      id: this.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc57_get_session_delegation",
       params: {
@@ -270,7 +274,7 @@ export class Signer {
       CallCanisterRequest,
       CallCanisterResponse
     >({
-      id: this.getCrypto().randomUUID(),
+      id: this.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc49_call_canister",
       params: {
@@ -284,9 +288,5 @@ export class Signer {
       contentMap: Buffer.from(response.contentMap, "base64").buffer,
       certificate: Buffer.from(response.certificate, "base64").buffer,
     };
-  }
-
-  private getCrypto(): Pick<Crypto, "randomUUID" | "getRandomValues"> {
-    return this.options.crypto ?? window.crypto;
   }
 }

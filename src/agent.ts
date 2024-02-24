@@ -97,10 +97,10 @@ export class SignerAgentError extends Error {
 }
 
 export class SignerAgent implements Agent {
-  private agent: HttpAgent;
-  private storage: SignerStorage;
-  private readStateResponses = new Map<string, ReadStateResponse>();
-  private delegatedRequestIds = new Set<string>();
+  private readonly agent: HttpAgent;
+  private readonly storage: SignerStorage;
+  private readonly readStateResponses = new Map<string, ReadStateResponse>();
+  private readonly delegatedRequestIds = new Set<string>();
 
   constructor(private options: SignerAgentOptions) {
     this.agent = options.agent ?? new HttpAgent();
@@ -109,6 +109,10 @@ export class SignerAgent implements Agent {
 
   public get rootKey() {
     return this.agent.rootKey;
+  }
+
+  private get crypto(): Pick<Crypto, "getRandomValues"> {
+    return this.options.crypto ?? globalThis.crypto;
   }
 
   public async getDelegationIdentity(sender: Principal) {
@@ -359,7 +363,7 @@ export class SignerAgent implements Agent {
     }
     const newIdentity = await (this.options.delegation?.keyType === "Ed25519"
       ? Ed25519KeyIdentity.generate(
-          this.getCrypto().getRandomValues(new Uint8Array(32)),
+          this.crypto.getRandomValues(new Uint8Array(32)),
         )
       : ECDSAKeyIdentity.generate());
     await setIdentity(sender.toText(), newIdentity, this.storage);
@@ -375,9 +379,5 @@ export class SignerAgent implements Agent {
         return options.paths[0][1] as RequestId;
       }
     }
-  }
-
-  private getCrypto(): Pick<Crypto, "getRandomValues"> {
-    return this.options.crypto ?? window.crypto;
   }
 }

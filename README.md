@@ -29,8 +29,9 @@ const transport = new PostMessageTransport({
   getWindow: () => {
     if (!signerWindow || signerWindow.closed) {
       signerWindow = window.open(`${SIGNER_ORIGIN}/rpc`, SIGNER_WINDOW_NAME);
+    } else {
+      signerWindow.focus();
     }
-    signerWindow.focus();
     return signerWindow;
   }
 });

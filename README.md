@@ -1,6 +1,6 @@
 # signer-js
 
-Use a Signer to interact with the Internet Computer from your JavaScript program.
+Initiate transactions and authenticate with signers on the Internet Computer.
 
 This source code repository contains multiple npm packages, each under `./packages/`.
 

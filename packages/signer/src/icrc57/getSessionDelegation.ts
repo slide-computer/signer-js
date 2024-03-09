@@ -17,7 +17,6 @@ export type GetSessionDelegationRequest = JsonRequest<
   "icrc57_get_session_delegation",
   {
     publicKey: string;
-    targets?: string[];
     maxTimeToLive?: string;
   }
 >;

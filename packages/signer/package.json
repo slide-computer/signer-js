@@ -1,0 +1,62 @@
+{
+  "name": "@slide-computer/signer",
+  "version": "1.3.0",
+  "author": "Slide",
+  "license": "MIT",
+  "description": "JavaScript and TypeScript library to interact with signers on the Internet Computer",
+  "homepage": "https://github.com/slide-computer/signer-js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slide-computer/signer-js.git",
+    "directory": "packages/signer"
+  },
+  "bugs": {
+    "url": "https://github.com/slide-computer/signer-js/issues"
+  },
+  "keywords": [
+    "internet computer",
+    "internet-computer",
+    "ic",
+    "dfinity",
+    "signer",
+    "wallet",
+    "actor",
+    "dfx",
+    "canister",
+    "candid",
+    "motoko",
+    "javascript",
+    "typescript",
+    "blockchain",
+    "crypto",
+    "distributed",
+    "api",
+    "sdk"
+  ],
+  "main": "./lib/cjs/index",
+  "module": "./lib/esm/index",
+  "unpkg": "./lib/esm/index",
+  "scripts": {
+    "build": "tsc -b && tsc -p tsconfig-cjs.json",
+    "bundle": "esbuild --bundle src/index.ts --outfile=dist/index.js"
+  },
+  "peerDependencies": {
+    "@dfinity/candid": "^1.0.1",
+    "@dfinity/identity": "^1.0.1",
+    "@dfinity/principal": "^1.0.1",
+    "@slide-computer/signer-storage": "^1.3.0"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.3.0",
+    "@noble/ed25519": "^2.0.0",
+    "@noble/hashes": "^1.3.3",
+    "borc": "^2.1.2",
+    "buffer": "^6.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.15.16",
+    "eslint": "^8.56.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.3.3"
+  }
+}

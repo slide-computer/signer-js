@@ -1,3 +1,4 @@
+import { compare } from "@dfinity/agent";
 import {
   ValidateCanisterSignatureParams,
   ValidateChallengeSignatureParams,
@@ -5,7 +6,6 @@ import {
 import { ECDSA_P256_OID, isECDSASignatureValid } from "./p256";
 import { ED25519_OID, isEd25519SignatureValid } from "./ed25519";
 import { isSecp256k1SignatureValid, SECP256K1_OID } from "./secp256k1";
-import { compare } from "@dfinity/agent";
 import { CANISTER_SIGNATURE_OID, isCanisterSignatureValid } from "./canister";
 
 export const isSignatureValid = (

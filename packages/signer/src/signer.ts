@@ -231,7 +231,6 @@ export class Signer {
 
   public async getSessionDelegation(params: {
     publicKey: ArrayBuffer;
-    targets?: Principal[];
     maxTimeToLive?: bigint;
   }) {
     const response = await this.sendRequest<
@@ -243,7 +242,6 @@ export class Signer {
       method: "icrc57_get_session_delegation",
       params: {
         publicKey: Buffer.from(params.publicKey).toString("base64"),
-        targets: params.targets?.map((p) => p.toText()),
         maxTimeToLive:
           params.maxTimeToLive === undefined
             ? undefined

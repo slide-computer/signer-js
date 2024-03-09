@@ -1,4 +1,3 @@
-import { Signer } from "./signer";
 import { AnonymousIdentity, Identity, SignIdentity } from "@dfinity/agent";
 import {
   DelegationChain,
@@ -9,6 +8,7 @@ import {
   PartialDelegationIdentity,
   PartialIdentity,
 } from "@dfinity/identity";
+import { Signer } from "@slide-computer/signer";
 import {
   getDelegationChain,
   getIdentity,
@@ -18,7 +18,7 @@ import {
   setDelegationChain,
   setIdentity,
   SignerStorage,
-} from "./storage";
+} from "@slide-computer/signer-storage";
 import { IdleManager, IdleManagerOptions } from "./idleManager";
 
 const ECDSA_KEY_LABEL = "ECDSA";

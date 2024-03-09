@@ -8,12 +8,11 @@ import {
   HttpAgent,
   Identity,
   QueryFields,
-  QueryResponseStatus,
+  type QueryResponseStatus,
   ReadStateOptions,
   ReadStateResponse,
   RequestId,
   requestIdOf,
-  RequestStatusResponseStatus,
   SignIdentity,
   SubmitRequestType,
   SubmitResponse,
@@ -27,7 +26,7 @@ import {
   isDelegationValid,
 } from "@dfinity/identity";
 import { Buffer } from "buffer";
-import { Signer } from "./signer";
+import { Signer } from "@slide-computer/signer";
 import {
   getDelegationChain,
   getIdentity,
@@ -35,7 +34,7 @@ import {
   setDelegationChain,
   setIdentity,
   SignerStorage,
-} from "./storage";
+} from "@slide-computer/signer-storage";
 import { decode } from "./utils/cbor";
 
 const ECDSA_KEY_LABEL = "ECDSA";
@@ -251,12 +250,12 @@ export class SignerAgent implements Agent {
       new TextEncoder().encode("status"),
     ]);
     const status = maybeBuf && new TextDecoder().decode(maybeBuf);
-    if (status !== RequestStatusResponseStatus.Replied) {
+    if (status !== "replied") {
       throw new SignerAgentError("Certificate is missing reply");
     }
     return {
       requestId: submitResponse.requestId,
-      status: QueryResponseStatus.Replied,
+      status: "replied" as QueryResponseStatus.Replied,
       reply: {
         arg: certificate.lookup([...path, "reply"])!,
       },

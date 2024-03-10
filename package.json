@@ -12,9 +12,6 @@
       "./packages/signer-signatures"
     ]
   },
-  "main": "./lib/cjs/index",
-  "module": "./lib/esm/index",
-  "unpkg": "./lib/esm/index",
   "scripts": {
     "build": "npm run build --workspaces --if-present; npm run bundle --workspaces --if-present"
   },

@@ -36,7 +36,11 @@ import {
   GetGlobalDelegationRequest,
   GetGlobalDelegationResponse,
 } from "./icrc34";
-import { CallCanisterRequest, CallCanisterResponse } from "./icrc49";
+import {
+  CallCanisterPermissionScope,
+  CallCanisterRequest,
+  CallCanisterResponse,
+} from "./icrc49";
 import {
   GetSessionDelegationPermissionScope,
   GetSessionDelegationRequest,
@@ -61,6 +65,7 @@ export type SignerPermissionScope =
   | GetPrincipalsPermissionScope
   | SignChallengePermissionScope
   | GetGlobalDelegationPermissionScope
+  | CallCanisterPermissionScope
   | GetSessionDelegationPermissionScope;
 
 export type SignerOptions = {

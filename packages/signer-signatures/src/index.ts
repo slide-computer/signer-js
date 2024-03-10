@@ -1,5 +1,5 @@
 import { compare } from "@dfinity/agent";
-import {
+import type {
   ValidateCanisterSignatureParams,
   ValidateChallengeSignatureParams,
 } from "./types";

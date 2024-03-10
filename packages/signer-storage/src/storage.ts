@@ -1,4 +1,4 @@
-import { createStore, del, get, set, UseStore } from "idb-keyval";
+import { createStore, del, get, set, type UseStore } from "idb-keyval";
 import {
   DelegationChain,
   ECDSAKeyIdentity,
@@ -91,58 +91,3 @@ export class IdbStorage implements SignerStorage {
     return del(key, this.store);
   }
 }
-
-export const getIdentity = async (key: string, storage: SignerStorage) => {
-  const value = await storage.get(`identity-${key}`);
-  if (!value) {
-    return;
-  }
-  return typeof value === "string"
-    ? Ed25519KeyIdentity.fromJSON(value)
-    : ECDSAKeyIdentity.fromKeyPair(value);
-};
-
-export const setIdentity = async (
-  key: string,
-  identity: Ed25519KeyIdentity | ECDSAKeyIdentity,
-  storage: SignerStorage,
-) => {
-  const value =
-    identity instanceof Ed25519KeyIdentity
-      ? JSON.stringify(identity.toJSON())
-      : identity.getKeyPair();
-  return storage.set(`identity-${key}`, value);
-};
-
-export const removeIdentity = async (key: string, storage: SignerStorage) => {
-  return storage.remove(`identity-${key}`);
-};
-
-export const getDelegationChain = async (
-  key: string,
-  storage: SignerStorage,
-) => {
-  const json = await storage.get(`delegation-${key}`);
-  if (!json || typeof json !== "string") {
-    return;
-  }
-  return DelegationChain.fromJSON(json);
-};
-
-export const setDelegationChain = async (
-  key: string,
-  delegationChain: DelegationChain,
-  storage: SignerStorage,
-) => {
-  return storage.set(
-    `delegation-${key}`,
-    JSON.stringify(delegationChain.toJSON()),
-  );
-};
-
-export const removeDelegationChain = async (
-  key: string,
-  storage: SignerStorage,
-) => {
-  return storage.remove(`delegation-${key}`);
-};

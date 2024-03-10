@@ -1,4 +1,8 @@
-import { AnonymousIdentity, Identity, SignIdentity } from "@dfinity/agent";
+import {
+  AnonymousIdentity,
+  type Identity,
+  type SignIdentity,
+} from "@dfinity/agent";
 import {
   DelegationChain,
   DelegationIdentity,
@@ -8,7 +12,7 @@ import {
   PartialDelegationIdentity,
   PartialIdentity,
 } from "@dfinity/identity";
-import { Signer } from "@slide-computer/signer";
+import type { Signer } from "@slide-computer/signer";
 import {
   getDelegationChain,
   getIdentity,
@@ -17,9 +21,9 @@ import {
   removeIdentity,
   setDelegationChain,
   setIdentity,
-  SignerStorage,
+  type SignerStorage,
 } from "@slide-computer/signer-storage";
-import { IdleManager, IdleManagerOptions } from "./idleManager";
+import { IdleManager, type IdleManagerOptions } from "./idleManager";
 
 const ECDSA_KEY_LABEL = "ECDSA";
 const ED25519_KEY_LABEL = "Ed25519";

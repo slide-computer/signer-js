@@ -1,4 +1,4 @@
-import { JsonArray, JsonObject, JsonValue } from "@dfinity/candid";
+import type { JsonArray, JsonObject, JsonValue } from "@dfinity/candid";
 
 export type JsonRPC = {
   jsonrpc: "2.0";

@@ -1,4 +1,9 @@
-import { BatchTransport, JsonRequest, JsonResponse, JsonRPC } from "./types";
+import type {
+  BatchTransport,
+  JsonRequest,
+  JsonResponse,
+  JsonRPC,
+} from "./types";
 import { Buffer } from "buffer";
 import { isJsonRpcResponse } from "./utils";
 

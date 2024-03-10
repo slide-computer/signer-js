@@ -1,5 +1,5 @@
 import { unwrapDER } from "@dfinity/identity";
-import { ValidateCanisterSignatureParams } from "./types";
+import type { ValidateCanisterSignatureParams } from "./types";
 import { Certificate } from "@dfinity/agent";
 import { Principal } from "@dfinity/principal";
 import { decode } from "./utils/cbor";

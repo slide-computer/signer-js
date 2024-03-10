@@ -1,6 +1,6 @@
-import { PermissionScope } from "../icrc25";
-import { JsonRequest, JsonResponse } from "../transport";
-import { SignedDelegation } from "../icrc32";
+import type { PermissionScope } from "../icrc25";
+import type { JsonRequest, JsonResponse } from "../transport";
+import type { SignedDelegation } from "../icrc32";
 import { Principal } from "@dfinity/principal";
 
 export type GetGlobalDelegationPermissionScope =

@@ -1,4 +1,4 @@
-import { CreateCertificateOptions } from "@dfinity/agent";
+import type { CreateCertificateOptions } from "@dfinity/agent";
 
 export interface ValidateSignatureParams {
   publicKey: ArrayBuffer;

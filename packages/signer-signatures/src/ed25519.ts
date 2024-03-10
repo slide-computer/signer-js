@@ -1,6 +1,6 @@
 import * as ed from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha512";
-import { ValidateChallengeSignatureParams } from "./types";
+import type { ValidateChallengeSignatureParams } from "./types";
 import { Buffer } from "buffer";
 import { ED25519_OID, unwrapDER } from "@dfinity/identity";
 

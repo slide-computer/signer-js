@@ -1,5 +1,5 @@
-import { PermissionScope } from "../icrc25";
-import { JsonRequest, JsonResponse } from "../transport";
+import type { PermissionScope } from "../icrc25";
+import type { JsonRequest, JsonResponse } from "../transport";
 
 export type SignChallengePermissionScope =
   PermissionScope<"icrc32_sign_challenge">;

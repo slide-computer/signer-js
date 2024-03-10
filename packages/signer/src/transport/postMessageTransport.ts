@@ -1,4 +1,4 @@
-import { JsonRequest, JsonResponse, Transport } from "./types";
+import type { JsonRequest, JsonResponse, Transport } from "./types";
 import { isJsonRpcRequest, isJsonRpcResponse } from "./utils";
 
 export interface PostMessageTransportOptions {

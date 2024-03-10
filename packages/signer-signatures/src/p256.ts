@@ -1,4 +1,4 @@
-import { ValidateChallengeSignatureParams } from "./types";
+import type { ValidateChallengeSignatureParams } from "./types";
 import { Buffer } from "buffer";
 import { unwrapDER } from "@dfinity/identity";
 import { sha256 } from "@noble/hashes/sha256";

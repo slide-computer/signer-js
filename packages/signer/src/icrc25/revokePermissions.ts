@@ -1,5 +1,5 @@
-import { JsonRequest, JsonResponse } from "../transport";
-import { PermissionScope } from "./requestPermissions";
+import type { JsonRequest, JsonResponse } from "../transport";
+import type { PermissionScope } from "./requestPermissions";
 
 export type RevokePermissionsRequest = JsonRequest<
   "icrc25_revoke_permissions",

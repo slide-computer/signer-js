@@ -1,4 +1,4 @@
-import { JsonRequest, JsonResponse } from "../transport";
+import type { JsonRequest, JsonResponse } from "../transport";
 
 export type SupportedStandard = {
   name: string;

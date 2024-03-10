@@ -37,8 +37,7 @@
   "module": "./lib/esm/index",
   "unpkg": "./lib/esm/index",
   "scripts": {
-    "build": "tsc -b && tsc -p tsconfig-cjs.json",
-    "bundle": "esbuild --bundle src/index.ts --outfile=dist/index.js"
+    "build": "tsc -b && tsc -p tsconfig-cjs.json"
   },
   "peerDependencies": {
     "@dfinity/identity": "^1.0.1"

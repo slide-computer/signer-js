@@ -1,5 +1,5 @@
-import { JsonRequest, JsonResponse } from "../transport";
-import { PermissionScope } from "../icrc25";
+import type { JsonRequest, JsonResponse } from "../transport";
+import type { PermissionScope } from "../icrc25";
 import { Principal } from "@dfinity/principal";
 
 export type CallCanisterPermissionScope =

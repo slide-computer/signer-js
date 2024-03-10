@@ -1,4 +1,4 @@
-import { JsonRequest, JsonResponse } from "../transport";
+import type { JsonRequest, JsonResponse } from "../transport";
 
 export type PermissionScope<Method extends string = string> = {
   method: Method;

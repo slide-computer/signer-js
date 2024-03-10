@@ -1,4 +1,4 @@
-import { JsonRequest, JsonResponse, JsonRPC, Transport } from "./types";
+import type { JsonRequest, JsonResponse, JsonRPC, Transport } from "./types";
 
 export interface PromiseTransportOptions {
   call: (data: JsonRPC) => Promise<JsonRPC | void>;

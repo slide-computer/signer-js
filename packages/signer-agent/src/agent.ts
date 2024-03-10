@@ -1,23 +1,23 @@
 import {
-  Agent,
-  ApiQueryResponse,
-  CallRequest,
+  type Agent,
+  type ApiQueryResponse,
+  type CallRequest,
   Certificate,
   compare,
-  CreateCertificateOptions,
+  type CreateCertificateOptions,
   HttpAgent,
-  Identity,
-  QueryFields,
+  type Identity,
+  type QueryFields,
   type QueryResponseStatus,
-  ReadStateOptions,
-  ReadStateResponse,
-  RequestId,
+  type ReadStateOptions,
+  type ReadStateResponse,
+  type RequestId,
   requestIdOf,
   SignIdentity,
   SubmitRequestType,
-  SubmitResponse,
+  type SubmitResponse,
 } from "@dfinity/agent";
-import { JsonObject } from "@dfinity/candid";
+import type { JsonObject } from "@dfinity/candid";
 import { Principal } from "@dfinity/principal";
 import {
   DelegationIdentity,
@@ -26,14 +26,14 @@ import {
   isDelegationValid,
 } from "@dfinity/identity";
 import { Buffer } from "buffer";
-import { Signer } from "@slide-computer/signer";
+import type { Signer } from "@slide-computer/signer";
 import {
   getDelegationChain,
   getIdentity,
   IdbStorage,
   setDelegationChain,
   setIdentity,
-  SignerStorage,
+  type SignerStorage,
 } from "@slide-computer/signer-storage";
 import { decode } from "./utils/cbor";
 

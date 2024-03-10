@@ -1,4 +1,4 @@
-import { JsonRequest, JsonResponse, JsonRPC } from "./types";
+import type { JsonRequest, JsonResponse, JsonRPC } from "./types";
 
 export const isJsonRpcMessage = (message: unknown): message is JsonRPC =>
   typeof message === "object" &&

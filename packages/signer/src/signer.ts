@@ -1,16 +1,16 @@
 import { Buffer } from "buffer";
 import { Principal } from "@dfinity/principal";
 import { Delegation, DelegationChain } from "@dfinity/identity";
-import { Signature } from "@dfinity/agent";
-import { JsonValue } from "@dfinity/candid";
-import {
+import type { Signature } from "@dfinity/agent";
+import type { JsonValue } from "@dfinity/candid";
+import type {
   JsonError,
   JsonRequest,
   JsonResponse,
   JsonResponseResult,
   Transport,
 } from "./transport";
-import {
+import type {
   GrantedPermissionsRequest,
   GrantedPermissionsResponse,
   PermissionScope,
@@ -21,27 +21,27 @@ import {
   SupportedStandardsRequest,
   SupportedStandardsResponse,
 } from "./icrc25";
-import {
+import type {
   GetPrincipalsPermissionScope,
   GetPrincipalsRequest,
   GetPrincipalsResponse,
 } from "./icrc31";
-import {
+import type {
   SignChallengePermissionScope,
   SignChallengeRequest,
   SignChallengeResponse,
 } from "./icrc32";
-import {
+import type {
   GetGlobalDelegationPermissionScope,
   GetGlobalDelegationRequest,
   GetGlobalDelegationResponse,
 } from "./icrc34";
-import {
+import type {
   CallCanisterPermissionScope,
   CallCanisterRequest,
   CallCanisterResponse,
 } from "./icrc49";
-import {
+import type {
   GetSessionDelegationPermissionScope,
   GetSessionDelegationRequest,
   GetSessionDelegationResponse,

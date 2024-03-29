@@ -173,7 +173,7 @@ export class SignerAgent implements Agent {
     const requestBody = decode<CallRequest>(contentMap);
     if (
       SubmitRequestType.Call !== requestBody.request_type ||
-      target.compareTo(requestBody.canister_id) !== "eq" ||
+      target.compareTo(Principal.from(requestBody.canister_id)) !== "eq" ||
       options.methodName !== requestBody.method_name ||
       compare(options.arg, requestBody.arg) !== 0 ||
       sender.compareTo(Principal.from(requestBody.sender)) !== "eq"

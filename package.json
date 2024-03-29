@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "private": true,
   "description": "Initiate transactions and authenticate with signers on the Internet Computer",
   "workspaces": {
@@ -13,7 +13,7 @@
     ]
   },
   "scripts": {
-    "build": "npm run build --workspaces --if-present; npm run bundle --workspaces --if-present"
+    "build": "npm run build --workspaces"
   },
   "author": "Slide",
   "license": "MIT",

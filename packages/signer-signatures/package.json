@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-signatures",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "author": "Slide",
   "license": "MIT",
   "description": "Verify signatures from signers on the Internet Computer",
@@ -43,8 +43,7 @@
     "@dfinity/agent": "^1.0.1",
     "@dfinity/candid": "^1.0.1",
     "@dfinity/identity": "^1.0.1",
-    "@dfinity/principal": "^1.0.1",
-    "@slide-computer/signer-storage": "^1.3.2"
+    "@dfinity/principal": "^1.0.1"
   },
   "dependencies": {
     "@noble/curves": "^1.3.0",

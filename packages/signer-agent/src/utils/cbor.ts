@@ -25,16 +25,6 @@ const decodePositiveBigInt = (buf: Uint8Array): bigint => {
   return res;
 };
 
-const decodeU64 = (buf: Uint8Array): bigint =>
-  BigInt(
-    parseInt(
-      Array.from(buf)
-        .map((byte) => byte.toString(16))
-        .join(""),
-      16,
-    ),
-  );
-
 export const decode = <T>(input: ArrayBuffer): T => {
   const buffer = new Uint8Array(input);
   const decoder = new Uint8ArrayDecoder({
@@ -43,7 +33,6 @@ export const decode = <T>(input: ArrayBuffer): T => {
       // Override tags 2 and 3 for BigInt support (borc supports only BigNumber).
       2: (val) => decodePositiveBigInt(val),
       3: (val) => -decodePositiveBigInt(val),
-      27: (val) => decodeU64(val), // Decode e.g. u64 expiry in content map
       55799: (value: T): T => value,
     },
   });

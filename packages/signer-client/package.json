@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-client",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "author": "Slide",
   "license": "MIT",
   "description": "Authenticate with signers on the Internet Computer",
@@ -42,8 +42,8 @@
   "peerDependencies": {
     "@dfinity/agent": "^1.0.1",
     "@dfinity/identity": "^1.0.1",
-    "@slide-computer/signer": "^1.4.0",
-    "@slide-computer/signer-storage": "^1.4.0"
+    "@slide-computer/signer": "^1.5.0",
+    "@slide-computer/signer-storage": "^1.5.0"
   },
   "devDependencies": {
     "esbuild": "^0.15.16",

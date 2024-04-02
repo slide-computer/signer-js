@@ -1,7 +1,6 @@
 import {
   type Agent,
   type ApiQueryResponse,
-  type CallRequest,
   Certificate,
   compare,
   type CreateCertificateOptions,
@@ -35,7 +34,7 @@ import {
   setIdentity,
   type SignerStorage,
 } from "@slide-computer/signer-storage";
-import { decode } from "./utils/cbor";
+import { decodeCallRequest } from "./utils/decodeCallRequest";
 
 const ECDSA_KEY_LABEL = "ECDSA";
 const ED25519_KEY_LABEL = "Ed25519";
@@ -170,10 +169,10 @@ export class SignerAgent implements Agent {
       method: options.methodName,
       arg: options.arg,
     });
-    const requestBody = decode<CallRequest>(contentMap);
+    const requestBody = decodeCallRequest(contentMap);
     if (
       SubmitRequestType.Call !== requestBody.request_type ||
-      target.compareTo(Principal.from(requestBody.canister_id)) !== "eq" ||
+      target.compareTo(requestBody.canister_id) !== "eq" ||
       options.methodName !== requestBody.method_name ||
       compare(options.arg, requestBody.arg) !== 0 ||
       sender.compareTo(Principal.from(requestBody.sender)) !== "eq"

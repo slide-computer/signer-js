@@ -161,7 +161,9 @@ export class Signer {
       jsonrpc: "2.0",
       method: "icrc31_get_principals",
     });
-    return response.principals.map(Principal.fromText);
+    return response.principals.map((principal) =>
+      Principal.fromText(principal),
+    );
   }
 
   public async signChallenge(principal: Principal, challenge: ArrayBuffer) {
@@ -187,7 +189,9 @@ export class Signer {
             delegation: new Delegation(
               Buffer.from(signedDelegation.delegation.pubkey, "base64").buffer,
               BigInt(signedDelegation.delegation.expiration),
-              signedDelegation.delegation.targets?.map(Principal.fromText),
+              signedDelegation.delegation.targets?.map((principal) =>
+                Principal.fromText(principal),
+              ),
             ),
             signature: Buffer.from(signedDelegation.signature, "base64")
               .buffer as Signature,
@@ -225,7 +229,9 @@ export class Signer {
         delegation: new Delegation(
           Buffer.from(signedDelegation.delegation.pubkey, "base64").buffer,
           BigInt(signedDelegation.delegation.expiration),
-          signedDelegation.delegation.targets?.map(Principal.fromText),
+          signedDelegation.delegation.targets?.map((principal) =>
+            Principal.fromText(principal),
+          ),
         ),
         signature: Buffer.from(signedDelegation.signature, "base64")
           .buffer as Signature,
@@ -258,7 +264,9 @@ export class Signer {
         delegation: new Delegation(
           Buffer.from(signedDelegation.delegation.pubkey, "base64").buffer,
           BigInt(signedDelegation.delegation.expiration),
-          signedDelegation.delegation.targets?.map(Principal.fromText),
+          signedDelegation.delegation.targets?.map((principal) =>
+            Principal.fromText(principal),
+          ),
         ),
         signature: Buffer.from(signedDelegation.signature, "base64")
           .buffer as Signature,

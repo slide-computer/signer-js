@@ -21,10 +21,10 @@ import { SignerAgent } from "@slide-computer/signer-agent";
 To get started with the signerAgent, run
 
 ```js
-const signerAgent = await SignerAgent.create({
+const signerAgent = new SignerAgent({
   signer,
   getPrincipal: () => {
-    return principals[0]; // For example, make calls as first principal
+    return accounts[0].principal; // For example, make calls as first principal
   }
 });
 ```

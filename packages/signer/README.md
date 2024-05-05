@@ -36,9 +36,9 @@ const transport = new PostMessageTransport({
 const signer = new Signer({transport});
 ```
 
-The signer can request permissions and use these permissions to get principals with
+The signer can request permissions and use these permissions to get accounts with
 
 ```js
-const permissions = await signer.requestPermissions([createGetPrincipalsPermissionScope()]);
-const principals = await signer.getPrincipals();
+const permissions = await signer.requestPermissions([createGetAccountsPermissionScope()]);
+const accounts = await signer.getAccounts();
 ```

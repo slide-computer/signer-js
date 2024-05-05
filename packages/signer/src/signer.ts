@@ -22,10 +22,10 @@ import type {
   SupportedStandardsResponse,
 } from "./icrc25";
 import type {
-  GetPrincipalsPermissionScope,
-  GetPrincipalsRequest,
-  GetPrincipalsResponse,
-} from "./icrc31";
+  GetAccountsPermissionScope,
+  GetAccountsRequest,
+  GetAccountsResponse,
+} from "./icrc27";
 import type {
   SignChallengePermissionScope,
   SignChallengeRequest,
@@ -62,7 +62,7 @@ export class SignerError extends Error {
 
 export type SignerPermissionScope =
   | PermissionScope
-  | GetPrincipalsPermissionScope
+  | GetAccountsPermissionScope
   | SignChallengePermissionScope
   | GetGlobalDelegationPermissionScope
   | CallCanisterPermissionScope
@@ -152,18 +152,22 @@ export class Signer {
     return response.scopes as SignerPermissionScope[];
   }
 
-  public async getPrincipals() {
+  public async getAccounts() {
     const response = await this.sendRequest<
-      GetPrincipalsRequest,
-      GetPrincipalsResponse
+      GetAccountsRequest,
+      GetAccountsResponse
     >({
       id: this.crypto.randomUUID(),
       jsonrpc: "2.0",
-      method: "icrc31_get_principals",
+      method: "icrc27_get_accounts",
     });
-    return response.principals.map((principal) =>
-      Principal.fromText(principal),
-    );
+    return response.accounts.map(({ principal, subaccount }) => ({
+      principal: Principal.fromText(principal),
+      subaccount:
+        subaccount === undefined
+          ? undefined
+          : Buffer.from(subaccount, "base64").buffer,
+    }));
   }
 
   public async signChallenge(principal: Principal, challenge: ArrayBuffer) {

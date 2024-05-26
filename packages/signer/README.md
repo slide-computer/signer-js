@@ -23,10 +23,9 @@ To get started with the signer, run
 ```js
 let signerWindow;
 const transport = new PostMessageTransport({
-  origin: SIGNER_ORIGIN,
   getWindow: () => {
     if (!signerWindow || signerWindow.closed) {
-      signerWindow = window.open(`${SIGNER_ORIGIN}/rpc`, SIGNER_WINDOW_NAME);
+      signerWindow = window.open(SIGNER_RPC_URL, SIGNER_WINDOW_NAME);
     } else {
       signerWindow.focus();
     }

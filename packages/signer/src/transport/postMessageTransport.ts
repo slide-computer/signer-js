@@ -1,20 +1,24 @@
 import type { JsonRequest, JsonResponse, Transport } from "./types";
-import { isJsonRpcRequest, isJsonRpcResponse } from "./utils";
+import { isJsonRpcResponse } from "./utils";
 
 export interface PostMessageTransportOptions {
-  /** Expected origin of incoming messages and target origin of outgoing messages */
-  origin: string;
-  /** Get window to send outgoing messages towards */
+  /** Get window to send and receive messages from */
   getWindow: () => Window;
+  /** Get random uuid implementation for status messages */
+  crypto?: Pick<Crypto, "randomUUID">;
+  /** Polling rate */
+  statusPollingRate?: number;
 }
 
 export class PostMessageTransport implements Transport {
-  private window?: Window;
+  private signerWindow?: Window;
   private waitTillReady?: Promise<void>;
   private readyListener?: () => void;
 
-  constructor(private options: PostMessageTransportOptions) {
-    this.readyListener = this.registerReadyListener();
+  constructor(private options: PostMessageTransportOptions) {}
+
+  private get crypto() {
+    return this.options.crypto ?? globalThis.crypto;
   }
 
   public registerListener(
@@ -22,7 +26,8 @@ export class PostMessageTransport implements Transport {
   ): () => void {
     const messageListener = async (event: MessageEvent) => {
       if (
-        event.origin !== this.options.origin ||
+        !this.signerWindow ||
+        event.source !== this.signerWindow ||
         !isJsonRpcResponse(event.data)
       ) {
         return;
@@ -36,31 +41,43 @@ export class PostMessageTransport implements Transport {
   }
 
   public async send(request: JsonRequest): Promise<void> {
-    if (this.window?.closed) {
+    const signerWindow = this.options.getWindow();
+    if (signerWindow !== this.signerWindow) {
+      this.signerWindow = signerWindow;
       this.readyListener?.();
       this.readyListener = this.registerReadyListener();
     }
-    this.window = this.options.getWindow();
     await this.waitTillReady;
-    this.window.postMessage(request, this.options.origin);
+    this.signerWindow.postMessage(request, "*");
   }
 
   private registerReadyListener() {
-    let listener: (event: MessageEvent) => void;
+    let interval: number;
+    let listener: () => void;
+    const id = this.crypto.randomUUID();
+    const cleanup = () => {
+      clearInterval(interval);
+      listener();
+    };
     this.waitTillReady = new Promise((resolve) => {
-      listener = (event: MessageEvent) => {
+      interval = setInterval(() => {
+        this.signerWindow?.postMessage(
+          { jsonrpc: "2.0", id, method: "icrc29_status" },
+          "*",
+        );
+      }, this.options.statusPollingRate ?? 200);
+      listener = this.registerListener(async (response) => {
         if (
-          event.origin !== this.options.origin ||
-          !isJsonRpcRequest(event.data) ||
-          event.data.method !== "icrc29_ready"
+          response.id !== id ||
+          !("result" in response) ||
+          response.result !== "ready"
         ) {
           return;
         }
-        window.removeEventListener("message", listener);
+        cleanup();
         resolve();
-      };
-      window.addEventListener("message", listener);
+      });
     });
-    return () => window.removeEventListener("message", listener);
+    return cleanup;
   }
 }

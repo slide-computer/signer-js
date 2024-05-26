@@ -1,21 +1,11 @@
 import type { JsonRequest, JsonResponse } from "../transport";
 import type { PermissionScope } from "../icrc25";
-import { Principal } from "@dfinity/principal";
 
 export type CallCanisterPermissionScope =
-  PermissionScope<"icrc49_call_canister"> & {
-    targets?: string[];
-    senders?: string[];
-  };
+  PermissionScope<"icrc49_call_canister">;
 
-export const createCallCanisterPermissionScope = (params: {
-  targets?: Principal[];
-  senders?: Principal[];
-}): CallCanisterPermissionScope => ({
-  method: "icrc49_call_canister",
-  targets: params.targets?.map((p) => p.toText()),
-  senders: params.senders?.map((p) => p.toText()),
-});
+export const createCallCanisterPermissionScope =
+  (): CallCanisterPermissionScope => ({ method: "icrc49_call_canister" });
 
 export type CallCanisterRequest = JsonRequest<
   "icrc49_call_canister",

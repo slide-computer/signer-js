@@ -24,7 +24,7 @@ To get started with the signerAgent, run
 const signerAgent = new SignerAgent({
   signer,
   getPrincipal: () => {
-    return accounts[0].principal; // For example, make calls as first principal
+    return accounts[0].owner; // For example, make calls as first principal
   }
 });
 ```

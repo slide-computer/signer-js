@@ -46,6 +46,7 @@ import type {
   GetSessionDelegationRequest,
   GetSessionDelegationResponse,
 } from "./icrc57";
+import { NETWORK_ERROR } from "./errors";
 
 export class SignerError extends Error {
   public code: number;
@@ -98,7 +99,18 @@ export class Signer {
           listener();
         },
       );
-      await this.options.transport.send(request);
+      try {
+        await this.options.transport.send(request);
+      } catch (error) {
+        listener();
+        reject(
+          new SignerError({
+            code: NETWORK_ERROR,
+            message:
+              error instanceof Error ? error.message : "Something went wrong",
+          }),
+        );
+      }
     });
   }
 
@@ -161,8 +173,8 @@ export class Signer {
       jsonrpc: "2.0",
       method: "icrc27_get_accounts",
     });
-    return response.accounts.map(({ principal, subaccount }) => ({
-      principal: Principal.fromText(principal),
+    return response.accounts.map(({ owner, subaccount }) => ({
+      owner: Principal.fromText(owner),
       subaccount:
         subaccount === undefined
           ? undefined

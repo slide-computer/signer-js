@@ -12,7 +12,7 @@ export type GetAccountsRequest = JsonRequest<"icrc27_get_accounts">;
 
 export type GetAccountsResponse = JsonResponse<{
   accounts: Array<{
-    principal: string;
+    owner: string;
     subaccount?: string;
   }>;
 }>;

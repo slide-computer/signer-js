@@ -100,6 +100,7 @@ export class PostMessageTransport implements Transport {
           if (
             event.source !== signerWindow ||
             !isJsonRpcResponse(event.data) ||
+            event.data.id !== id ||
             !("result" in event.data) ||
             event.data.result !== "ready"
           ) {

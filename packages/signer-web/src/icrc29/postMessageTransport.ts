@@ -50,7 +50,7 @@ export class PostMessageTransport implements Transport {
       const id = this.crypto.randomUUID();
 
       // Listen for "status: ready" message
-      window.addEventListener("message", (event) => {
+      const listener = (event: MessageEvent) => {
         if (
           event.source !== signerWindow ||
           !isJsonRpcResponse(event.data) ||
@@ -62,13 +62,15 @@ export class PostMessageTransport implements Transport {
         }
         clearInterval(interval);
         clearTimeout(timeout);
+        window.removeEventListener("message", listener);
         resolve(
           new PostMessageChannel({
             window: signerWindow,
             origin: event.origin,
           }),
         );
-      });
+      };
+      window.addEventListener("message", listener);
 
       // Poll status
       const interval = setInterval(() => {
@@ -81,6 +83,7 @@ export class PostMessageTransport implements Transport {
       // Throw error on timeout
       const timeout = setTimeout(() => {
         clearInterval(interval);
+        window.removeEventListener("message", listener);
         reject(
           new PostMessageTransportError(
             "Establish communication channel timeout",

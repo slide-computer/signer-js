@@ -9,7 +9,8 @@
       "./packages/signer-storage",
       "./packages/signer-agent",
       "./packages/signer-client",
-      "./packages/signer-signatures"
+      "./packages/signer-signatures",
+      "./packages/signer-web"
     ]
   },
   "scripts": {

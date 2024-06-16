@@ -1,6 +1,5 @@
 export * from "./icrc25";
 export * from "./icrc27";
-export * from "./icrc29";
 export * from "./icrc32";
 export * from "./icrc34";
 export * from "./icrc39";

@@ -29,12 +29,20 @@ export type JsonResponseResult<T extends JsonResponse> = T extends {
   ? S
   : never;
 
-export interface Transport {
+export interface Channel {
+  isClosed: boolean;
+
   registerListener(
     listener: (response: JsonResponse) => Promise<void>,
   ): () => void;
 
   send(requests: JsonRequest): Promise<void>;
+
+  close(): Promise<void>;
+}
+
+export interface Transport {
+  establishChannel(): Promise<Channel>;
 }
 
 export const isJsonRpcMessage = (message: unknown): message is JsonRPC =>

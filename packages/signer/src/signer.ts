@@ -4,6 +4,7 @@ import { Delegation, DelegationChain } from "@dfinity/identity";
 import type { Signature } from "@dfinity/agent";
 import type { JsonValue } from "@dfinity/candid";
 import type {
+  Channel,
   JsonError,
   JsonRequest,
   JsonResponse,
@@ -73,8 +74,11 @@ export type SignerOptions = {
   transport: Transport;
   crypto?: Pick<Crypto, "randomUUID">;
 };
-
+// TODO: Implement channel re-use through interact() pattern
 export class Signer {
+  private channel?: Channel;
+  private establishingChannel?: Promise<void>;
+
   constructor(private options: SignerOptions) {}
 
   private get crypto() {
@@ -84,33 +88,31 @@ export class Signer {
   public async sendRequest<T extends JsonRequest, S extends JsonResponse>(
     request: T,
   ) {
-    return new Promise<JsonResponseResult<S>>(async (resolve, reject) => {
-      const listener = this.options.transport.registerListener(
-        async (response) => {
-          if (response.id !== request.id) {
-            return;
-          }
-          if ("error" in response) {
-            reject(new SignerError(response.error));
-          }
-          if ("result" in response) {
-            resolve(response.result as JsonResponseResult<S>);
-          }
-          listener();
-        },
-      );
+    if (!this.channel || this.channel.isClosed) {
       try {
-        await this.options.transport.send(request);
+        this.channel = await this.options.transport.establishChannel();
       } catch (error) {
-        listener();
-        reject(
-          new SignerError({
-            code: NETWORK_ERROR,
-            message:
-              error instanceof Error ? error.message : "Something went wrong",
-          }),
-        );
+        throw new SignerError({
+          code: NETWORK_ERROR,
+          message:
+            error instanceof Error ? error.message : "Something went wrong",
+        });
       }
+    }
+    return new Promise<JsonResponseResult<S>>(async (resolve, reject) => {
+      const listener = this.channel?.registerListener(async (response) => {
+        if (response.id !== request.id) {
+          return;
+        }
+        if ("error" in response) {
+          reject(new SignerError(response.error));
+        }
+        if ("result" in response) {
+          resolve(response.result as JsonResponseResult<S>);
+        }
+        listener?.();
+      });
+      await this.channel?.send(request);
     });
   }
 

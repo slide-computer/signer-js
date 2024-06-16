@@ -88,7 +88,7 @@ export class Signer {
   public async sendRequest<T extends JsonRequest, S extends JsonResponse>(
     request: T,
   ) {
-    if (!this.channel || this.channel.isClosed) {
+    if (!this.channel || this.channel.closed) {
       try {
         this.channel = await this.options.transport.establishChannel();
       } catch (error) {

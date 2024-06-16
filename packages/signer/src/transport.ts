@@ -30,7 +30,7 @@ export type JsonResponseResult<T extends JsonResponse> = T extends {
   : never;
 
 export interface Channel {
-  isClosed: boolean;
+  closed: boolean;
 
   registerListener(
     listener: (response: JsonResponse) => Promise<void>,

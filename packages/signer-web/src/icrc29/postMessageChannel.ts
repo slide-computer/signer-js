@@ -13,7 +13,7 @@ export interface PostMessageChannelOptions {
 export class PostMessageChannel implements Channel {
   constructor(private options: PostMessageChannelOptions) {}
 
-  public get isClosed() {
+  public get closed() {
     return this.options.window.closed;
   }
 

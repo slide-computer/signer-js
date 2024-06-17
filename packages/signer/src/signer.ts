@@ -62,6 +62,12 @@ export class SignerError extends Error {
   }
 }
 
+const wrapChannelError = (error: unknown) =>
+  new SignerError({
+    code: NETWORK_ERROR,
+    message: error instanceof Error ? error.message : "Something went wrong",
+  });
+
 export type SignerPermissionScope =
   | PermissionScope
   | GetAccountsPermissionScope
@@ -71,13 +77,26 @@ export type SignerPermissionScope =
   | GetSessionDelegationPermissionScope;
 
 export type SignerOptions = {
+  /**
+   * The transport used to send and receive messages
+   */
   transport: Transport;
+  /**
+   * Automatically close transport channel after a given duration in ms, set to -1 to disable.
+   * @default 200
+   */
+  closeTransportChannelAfter?: number;
+  /**
+   * Get random uuid implementation for request message ids
+   * @default window.crypto
+   */
   crypto?: Pick<Crypto, "randomUUID">;
 };
-// TODO: Implement channel re-use through interact() pattern
+
 export class Signer {
   private channel?: Channel;
   private establishingChannel?: Promise<void>;
+  private scheduledChannelClosure?: number;
 
   constructor(private options: SignerOptions) {}
 
@@ -85,34 +104,84 @@ export class Signer {
     return this.options.crypto ?? globalThis.crypto;
   }
 
+  public async openChannel(): Promise<Channel> {
+    // Stop any existing channel from being closed
+    clearTimeout(this.scheduledChannelClosure);
+
+    // Wait for ongoing establishing of a channel
+    if (this.establishingChannel) {
+      await this.establishingChannel;
+    }
+
+    // Reuse existing channel
+    if (this.channel && !this.channel.closed) {
+      return this.channel;
+    }
+
+    try {
+      // Establish a new transport channel
+      const channel = this.options.transport.establishChannel();
+      // Indicate that transport channel is being established
+      this.establishingChannel = channel.then(() => {});
+      // Clear previous transport channel
+      this.channel = undefined;
+      // Assign transport channel once established
+      this.channel = await channel;
+      // Remove transport channel being established indicator
+      this.establishingChannel = undefined;
+      // Return established channel
+      return this.channel;
+    } catch (error) {
+      throw wrapChannelError(error);
+    }
+  }
+
+  public async closeChannel(): Promise<void> {
+    await this.channel?.close();
+  }
+
   public async sendRequest<T extends JsonRequest, S extends JsonResponse>(
     request: T,
   ) {
-    if (!this.channel || this.channel.closed) {
-      try {
-        this.channel = await this.options.transport.establishChannel();
-      } catch (error) {
-        throw new SignerError({
-          code: NETWORK_ERROR,
-          message:
-            error instanceof Error ? error.message : "Something went wrong",
-        });
-      }
-    }
     return new Promise<JsonResponseResult<S>>(async (resolve, reject) => {
-      const listener = this.channel?.registerListener(async (response) => {
+      // Establish new or re-use existing transport channel
+      const channel = await this.openChannel();
+
+      // Listen on transport channel for incoming response
+      const listener = channel.registerListener(async (response) => {
         if (response.id !== request.id) {
+          // Ignore responses that don't match the request id
           return;
         }
+
+        // Reject or resolve based on response value
         if ("error" in response) {
           reject(new SignerError(response.error));
         }
         if ("result" in response) {
           resolve(response.result as JsonResponseResult<S>);
         }
-        listener?.();
+
+        // Stop listening to responses once a valid response has been received
+        listener();
+
+        // Close transport channel after a certain timeout
+        if (this.options.closeTransportChannelAfter !== -1) {
+          this.scheduledChannelClosure = setTimeout(() => {
+            if (!channel.closed) {
+              channel.close();
+            }
+          }, this.options.closeTransportChannelAfter ?? 200);
+        }
       });
-      await this.channel?.send(request);
+
+      // Send outgoing request over transport channel
+      try {
+        await channel.send(request);
+      } catch (error) {
+        listener();
+        throw wrapChannelError(error);
+      }
     });
   }
 

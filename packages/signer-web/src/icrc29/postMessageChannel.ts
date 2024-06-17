@@ -4,6 +4,7 @@ import {
   type JsonRequest,
   type JsonResponse,
 } from "@slide-computer/signer";
+import { PostMessageTransportError } from "./postMessageTransport";
 
 export interface PostMessageChannelOptions {
   window: Window;
@@ -37,6 +38,9 @@ export class PostMessageChannel implements Channel {
   }
 
   public async send(request: JsonRequest): Promise<void> {
+    if (this.options.window.closed) {
+      throw new PostMessageTransportError("Communication channel is closed");
+    }
     this.options.window.postMessage(request, this.options.origin);
   }
 

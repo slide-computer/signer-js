@@ -42,6 +42,12 @@ export interface Channel {
 }
 
 export interface Transport {
+  connected?: boolean;
+
+  connect?(): Promise<void>;
+
+  disconnect?(): Promise<void>;
+
   establishChannel(): Promise<Channel>;
 }
 

@@ -1,9 +1,4 @@
 import { createStore, del, get, set, type UseStore } from "idb-keyval";
-import {
-  DelegationChain,
-  ECDSAKeyIdentity,
-  Ed25519KeyIdentity,
-} from "@dfinity/identity";
 
 export type StoredKey = string | CryptoKeyPair;
 

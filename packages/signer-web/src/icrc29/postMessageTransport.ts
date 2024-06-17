@@ -35,19 +35,23 @@ export interface PostMessageTransportOptions {
 }
 
 export class PostMessageTransport implements Transport {
-  constructor(private options: PostMessageTransportOptions) {}
+  #options: PostMessageTransportOptions;
 
-  private get crypto() {
-    return this.options.crypto ?? globalThis.crypto;
+  constructor(options: PostMessageTransportOptions) {
+    this.#options = options;
   }
 
-  public async establishChannel(): Promise<Channel> {
+  get #crypto() {
+    return this.#options.crypto ?? globalThis.crypto;
+  }
+
+  async establishChannel(): Promise<Channel> {
     return new Promise<Channel>((resolve, reject) => {
       // Signer window
-      const signerWindow = this.options.openWindow();
+      const signerWindow = this.#options.openWindow();
 
       // Status message id
-      const id = this.crypto.randomUUID();
+      const id = this.#crypto.randomUUID();
 
       // Listen for "status: ready" message
       const listener = (event: MessageEvent) => {
@@ -78,7 +82,7 @@ export class PostMessageTransport implements Transport {
           { jsonrpc: "2.0", id, method: "icrc29_status" },
           "*",
         );
-      }, this.options.statusPollingRate ?? 200);
+      }, this.#options.statusPollingRate ?? 200);
 
       // Throw error on timeout
       const timeout = setTimeout(() => {
@@ -89,7 +93,7 @@ export class PostMessageTransport implements Transport {
             "Establish communication channel timeout",
           ),
         );
-      }, this.options.statusTimeout ?? 5000);
+      }, this.#options.statusTimeout ?? 5000);
     });
   }
 }

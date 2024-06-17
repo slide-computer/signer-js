@@ -94,55 +94,54 @@ export type SignerOptions = {
 };
 
 export class Signer {
-  private channel?: Channel;
-  private establishingChannel?: Promise<void>;
-  private scheduledChannelClosure?: number;
+  #options: SignerOptions;
+  #channel?: Channel;
+  #establishingChannel?: Promise<void>;
+  #scheduledChannelClosure?: number;
 
-  constructor(private options: SignerOptions) {}
-
-  private get crypto() {
-    return this.options.crypto ?? globalThis.crypto;
+  constructor(options: SignerOptions) {
+    this.#options = options;
   }
 
-  public async openChannel(): Promise<Channel> {
+  get #crypto() {
+    return this.#options.crypto ?? globalThis.crypto;
+  }
+
+  async openChannel(): Promise<Channel> {
     // Stop any existing channel from being closed
-    clearTimeout(this.scheduledChannelClosure);
+    clearTimeout(this.#scheduledChannelClosure);
 
     // Wait for ongoing establishing of a channel
-    if (this.establishingChannel) {
-      await this.establishingChannel;
+    if (this.#establishingChannel) {
+      await this.#establishingChannel;
     }
 
     // Reuse existing channel
-    if (this.channel && !this.channel.closed) {
-      return this.channel;
+    if (this.#channel && !this.#channel.closed) {
+      return this.#channel;
     }
 
-    try {
-      // Establish a new transport channel
-      const channel = this.options.transport.establishChannel();
-      // Indicate that transport channel is being established
-      this.establishingChannel = channel.then(() => {});
-      // Clear previous transport channel
-      this.channel = undefined;
-      // Assign transport channel once established
-      this.channel = await channel;
-      // Remove transport channel being established indicator
-      this.establishingChannel = undefined;
-      // Return established channel
-      return this.channel;
-    } catch (error) {
+    // Establish a new transport channel
+    const channel = this.#options.transport.establishChannel();
+    // Indicate that transport channel is being established
+    this.#establishingChannel = channel.then(() => {}).catch(() => {});
+    // Clear previous transport channel
+    this.#channel = undefined;
+    // Assign transport channel once established
+    this.#channel = await channel.catch((error) => {
       throw wrapChannelError(error);
-    }
+    });
+    // Remove transport channel being established indicator
+    this.#establishingChannel = undefined;
+    // Return established channel
+    return this.#channel;
   }
 
-  public async closeChannel(): Promise<void> {
-    await this.channel?.close();
+  async closeChannel(): Promise<void> {
+    await this.#channel?.close();
   }
 
-  public async sendRequest<T extends JsonRequest, S extends JsonResponse>(
-    request: T,
-  ) {
+  async sendRequest<T extends JsonRequest, S extends JsonResponse>(request: T) {
     return new Promise<JsonResponseResult<S>>(async (resolve, reject) => {
       // Establish new or re-use existing transport channel
       const channel = await this.openChannel();
@@ -166,12 +165,12 @@ export class Signer {
         listener();
 
         // Close transport channel after a certain timeout
-        if (this.options.closeTransportChannelAfter !== -1) {
-          this.scheduledChannelClosure = setTimeout(() => {
+        if (this.#options.closeTransportChannelAfter !== -1) {
+          this.#scheduledChannelClosure = setTimeout(() => {
             if (!channel.closed) {
               channel.close();
             }
-          }, this.options.closeTransportChannelAfter ?? 200);
+          }, this.#options.closeTransportChannelAfter ?? 200);
         }
       });
 
@@ -185,24 +184,24 @@ export class Signer {
     });
   }
 
-  public async supportedStandards() {
+  async supportedStandards() {
     const response = await this.sendRequest<
       SupportedStandardsRequest,
       SupportedStandardsResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_supported_standards",
     });
     return response.supportedStandards;
   }
 
-  public async requestPermissions(scopes: SignerPermissionScope[]) {
+  async requestPermissions(scopes: SignerPermissionScope[]) {
     const response = await this.sendRequest<
       RequestPermissionsRequest,
       RequestPermissionsResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_request_permissions",
       params: { scopes },
@@ -210,24 +209,24 @@ export class Signer {
     return response.scopes as SignerPermissionScope[];
   }
 
-  public async grantedPermissions() {
+  async grantedPermissions() {
     const response = await this.sendRequest<
       GrantedPermissionsRequest,
       GrantedPermissionsResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_granted_permissions",
     });
     return response.scopes as SignerPermissionScope[];
   }
 
-  public async revokePermissions(scopes: SignerPermissionScope[]) {
+  async revokePermissions(scopes: SignerPermissionScope[]) {
     const response = await this.sendRequest<
       RevokePermissionsRequest,
       RevokePermissionsResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_revoke_permissions",
       params: { scopes },
@@ -235,12 +234,12 @@ export class Signer {
     return response.scopes as SignerPermissionScope[];
   }
 
-  public async getAccounts() {
+  async getAccounts() {
     const response = await this.sendRequest<
       GetAccountsRequest,
       GetAccountsResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc27_get_accounts",
     });
@@ -253,12 +252,12 @@ export class Signer {
     }));
   }
 
-  public async signChallenge(principal: Principal, challenge: ArrayBuffer) {
+  async signChallenge(principal: Principal, challenge: ArrayBuffer) {
     const response = await this.sendRequest<
       SignChallengeRequest,
       SignChallengeResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc32_sign_challenge",
       params: {
@@ -288,7 +287,7 @@ export class Signer {
     };
   }
 
-  public async getGlobalDelegation(params: {
+  async getGlobalDelegation(params: {
     publicKey: ArrayBuffer;
     principal: Principal;
     targets: Principal[];
@@ -298,7 +297,7 @@ export class Signer {
       GetGlobalDelegationRequest,
       GetGlobalDelegationResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc34_get_global_delegation",
       params: {
@@ -327,7 +326,7 @@ export class Signer {
     );
   }
 
-  public async getSessionDelegation(params: {
+  async getSessionDelegation(params: {
     publicKey: ArrayBuffer;
     maxTimeToLive?: bigint;
   }) {
@@ -335,7 +334,7 @@ export class Signer {
       GetSessionDelegationRequest,
       GetSessionDelegationResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc57_get_session_delegation",
       params: {
@@ -362,7 +361,7 @@ export class Signer {
     );
   }
 
-  public async callCanister(params: {
+  async callCanister(params: {
     canisterId: Principal;
     sender: Principal;
     method: string;
@@ -372,7 +371,7 @@ export class Signer {
       CallCanisterRequest,
       CallCanisterResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc49_call_canister",
       params: {

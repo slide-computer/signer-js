@@ -1,8 +1,5 @@
 import type { JsonRequest, JsonResponse } from "../transport";
-
-export type PermissionScope<Method extends string = string> = {
-  method: Method;
-};
+import type { PermissionScope, PermissionState } from "./permissions";
 
 export type RequestPermissionsRequest = JsonRequest<
   "icrc25_request_permissions",
@@ -12,5 +9,5 @@ export type RequestPermissionsRequest = JsonRequest<
 >;
 
 export type RequestPermissionsResponse = JsonResponse<{
-  scopes: PermissionScope[];
+  scopes: Array<{ scope: PermissionScope; state: PermissionState }>;
 }>;

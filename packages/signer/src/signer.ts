@@ -18,6 +18,7 @@ import type {
   PermissionState,
   RequestPermissionsRequest,
   RequestPermissionsResponse,
+  SupportedStandard,
   SupportedStandardsRequest,
   SupportedStandardsResponse,
 } from "./icrc25";
@@ -146,7 +147,9 @@ export class Signer {
     await this.#channel?.close();
   }
 
-  async sendRequest<T extends JsonRequest, S extends JsonResponse>(request: T) {
+  async sendRequest<T extends JsonRequest, S extends JsonResponse>(
+    request: T,
+  ): Promise<JsonResponseResult<S>> {
     return new Promise<JsonResponseResult<S>>(async (resolve, reject) => {
       // Establish new or re-use existing transport channel
       const channel = await this.openChannel();
@@ -209,7 +212,7 @@ export class Signer {
     });
   }
 
-  async supportedStandards() {
+  async supportedStandards(): Promise<SupportedStandard[]> {
     const response = await this.sendRequest<
       SupportedStandardsRequest,
       SupportedStandardsResponse
@@ -270,7 +273,14 @@ export class Signer {
     }));
   }
 
-  async signChallenge(principal: Principal, challenge: ArrayBuffer) {
+  async signChallenge(
+    principal: Principal,
+    challenge: ArrayBuffer,
+  ): Promise<{
+    publicKey: ArrayBuffer;
+    signature: ArrayBuffer;
+    delegationChain?: DelegationChain;
+  }> {
     const response = await this.sendRequest<
       SignChallengeRequest,
       SignChallengeResponse
@@ -310,7 +320,7 @@ export class Signer {
     principal: Principal;
     targets: Principal[];
     maxTimeToLive?: bigint;
-  }) {
+  }): Promise<DelegationChain> {
     const response = await this.sendRequest<
       GetGlobalDelegationRequest,
       GetGlobalDelegationResponse
@@ -347,7 +357,7 @@ export class Signer {
   async getSessionDelegation(params: {
     publicKey: ArrayBuffer;
     maxTimeToLive?: bigint;
-  }) {
+  }): Promise<DelegationChain> {
     const response = await this.sendRequest<
       GetSessionDelegationRequest,
       GetSessionDelegationResponse
@@ -384,7 +394,7 @@ export class Signer {
     sender: Principal;
     method: string;
     arg: ArrayBuffer;
-  }) {
+  }): Promise<{ contentMap: ArrayBuffer; certificate: ArrayBuffer }> {
     const response = await this.sendRequest<
       CallCanisterRequest,
       CallCanisterResponse

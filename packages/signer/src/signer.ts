@@ -12,13 +12,12 @@ import type {
   Transport,
 } from "./transport";
 import type {
-  GrantedPermissionsRequest,
-  GrantedPermissionsResponse,
   PermissionScope,
+  PermissionsRequest,
+  PermissionsResponse,
+  PermissionState,
   RequestPermissionsRequest,
   RequestPermissionsResponse,
-  RevokePermissionsRequest,
-  RevokePermissionsResponse,
   SupportedStandardsRequest,
   SupportedStandardsResponse,
 } from "./icrc25";
@@ -222,7 +221,9 @@ export class Signer {
     return response.supportedStandards;
   }
 
-  async requestPermissions(scopes: SignerPermissionScope[]) {
+  async requestPermissions(
+    scopes: SignerPermissionScope[],
+  ): Promise<Array<{ scope: SignerPermissionScope; state: PermissionState }>> {
     const response = await this.sendRequest<
       RequestPermissionsRequest,
       RequestPermissionsResponse
@@ -232,35 +233,26 @@ export class Signer {
       method: "icrc25_request_permissions",
       params: { scopes },
     });
-    return response.scopes as SignerPermissionScope[];
+    return response.scopes;
   }
 
-  async grantedPermissions() {
+  async permissions(): Promise<
+    Array<{ scope: SignerPermissionScope; state: PermissionState }>
+  > {
     const response = await this.sendRequest<
-      GrantedPermissionsRequest,
-      GrantedPermissionsResponse
+      PermissionsRequest,
+      PermissionsResponse
     >({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
-      method: "icrc25_granted_permissions",
+      method: "icrc25_permissions",
     });
-    return response.scopes as SignerPermissionScope[];
+    return response.scopes;
   }
 
-  async revokePermissions(scopes: SignerPermissionScope[]) {
-    const response = await this.sendRequest<
-      RevokePermissionsRequest,
-      RevokePermissionsResponse
-    >({
-      id: this.#options.crypto.randomUUID(),
-      jsonrpc: "2.0",
-      method: "icrc25_revoke_permissions",
-      params: { scopes },
-    });
-    return response.scopes as SignerPermissionScope[];
-  }
-
-  async getAccounts() {
+  async getAccounts(): Promise<
+    Array<{ owner: Principal; subaccount?: ArrayBuffer }>
+  > {
     const response = await this.sendRequest<
       GetAccountsRequest,
       GetAccountsResponse

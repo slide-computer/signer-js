@@ -37,7 +37,7 @@ Or directly in your custom implementation
 ```js
 const channel = await transport.establishChannel();
 const listener = channel.registerListener((response) => {
-  // Process imcoming responses
+  // Process incoming responses
 });
 // Send outgoing requests
 channel.send(JSON_RPC_REQUEST);

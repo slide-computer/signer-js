@@ -4,6 +4,7 @@ import { Delegation, DelegationChain } from "@dfinity/identity";
 import type { Signature } from "@dfinity/agent";
 import type { JsonValue } from "@dfinity/candid";
 import type {
+  Channel,
   JsonError,
   JsonRequest,
   JsonResponse,
@@ -61,6 +62,12 @@ export class SignerError extends Error {
   }
 }
 
+const wrapChannelError = (error: unknown) =>
+  new SignerError({
+    code: NETWORK_ERROR,
+    message: error instanceof Error ? error.message : "Something went wrong",
+  });
+
 export type SignerPermissionScope =
   | PermissionScope
   | GetAccountsPermissionScope
@@ -70,68 +77,157 @@ export type SignerPermissionScope =
   | GetSessionDelegationPermissionScope;
 
 export type SignerOptions = {
+  /**
+   * The transport used to send and receive messages
+   */
   transport: Transport;
+  /**
+   * Automatically close transport channel after response has been received
+   * @default true
+   */
+  autoCloseTransportChannel?: boolean;
+  /**
+   * Close transport channel after a given duration in ms
+   * @default 200
+   */
+  closeTransportChannelAfter?: number;
+  /**
+   * Get random uuid implementation for request message ids
+   * @default window.crypto
+   */
   crypto?: Pick<Crypto, "randomUUID">;
 };
 
 export class Signer {
-  constructor(private options: SignerOptions) {}
+  #options: Required<SignerOptions>;
+  #channel?: Channel;
+  #establishingChannel?: Promise<void>;
+  #scheduledChannelClosure?: number;
 
-  private get crypto() {
-    return this.options.crypto ?? globalThis.crypto;
+  constructor(options: SignerOptions) {
+    this.#options = {
+      autoCloseTransportChannel: true,
+      closeTransportChannelAfter: 200,
+      crypto: globalThis.crypto,
+      ...options,
+    };
   }
 
-  public async sendRequest<T extends JsonRequest, S extends JsonResponse>(
-    request: T,
-  ) {
+  async openChannel(): Promise<Channel> {
+    // Stop any existing channel from being closed
+    clearTimeout(this.#scheduledChannelClosure);
+
+    // Wait for ongoing establishing of a channel
+    if (this.#establishingChannel) {
+      await this.#establishingChannel;
+    }
+
+    // Reuse existing channel
+    if (this.#channel && !this.#channel.closed) {
+      return this.#channel;
+    }
+
+    // Establish a new transport channel
+    const channel = this.#options.transport.establishChannel();
+    // Indicate that transport channel is being established
+    this.#establishingChannel = channel.then(() => {}).catch(() => {});
+    // Clear previous transport channel
+    this.#channel = undefined;
+    // Assign transport channel once established
+    this.#channel = await channel.catch((error) => {
+      throw wrapChannelError(error);
+    });
+    // Remove transport channel being established indicator
+    this.#establishingChannel = undefined;
+    // Return established channel
+    return this.#channel;
+  }
+
+  async closeChannel(): Promise<void> {
+    await this.#channel?.close();
+  }
+
+  async sendRequest<T extends JsonRequest, S extends JsonResponse>(request: T) {
     return new Promise<JsonResponseResult<S>>(async (resolve, reject) => {
-      const listener = this.options.transport.registerListener(
+      // Establish new or re-use existing transport channel
+      const channel = await this.openChannel();
+
+      // Listen on transport channel for incoming response
+      const responseListener = channel.addEventListener(
+        "response",
         async (response) => {
           if (response.id !== request.id) {
+            // Ignore responses that don't match the request id
             return;
           }
+
+          // Stop listening to events once a valid response has been received
+          responseListener();
+          closeListener();
+
+          // Reject or resolve based on response value
           if ("error" in response) {
             reject(new SignerError(response.error));
           }
           if ("result" in response) {
             resolve(response.result as JsonResponseResult<S>);
           }
-          listener();
+
+          // Close transport channel after a certain timeout
+          if (this.#options.autoCloseTransportChannel) {
+            this.#scheduledChannelClosure = setTimeout(() => {
+              if (!channel.closed) {
+                channel.close();
+              }
+            }, this.#options.closeTransportChannelAfter);
+          }
         },
       );
-      try {
-        await this.options.transport.send(request);
-      } catch (error) {
-        listener();
+
+      // Monitor if channel is closed before a response has been received
+      const closeListener = channel.addEventListener("close", () => {
+        // Stop listening to events once a channel is closed
+        responseListener();
+        closeListener();
+
+        // Throw error if channel is closed before response is received
         reject(
           new SignerError({
             code: NETWORK_ERROR,
-            message:
-              error instanceof Error ? error.message : "Something went wrong",
+            message: "Channel was closed before a response was received",
           }),
         );
+      });
+
+      // Send outgoing request over transport channel
+      try {
+        await channel.send(request);
+      } catch (error) {
+        responseListener();
+        closeListener();
+        reject(wrapChannelError(error));
       }
     });
   }
 
-  public async supportedStandards() {
+  async supportedStandards() {
     const response = await this.sendRequest<
       SupportedStandardsRequest,
       SupportedStandardsResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_supported_standards",
     });
     return response.supportedStandards;
   }
 
-  public async requestPermissions(scopes: SignerPermissionScope[]) {
+  async requestPermissions(scopes: SignerPermissionScope[]) {
     const response = await this.sendRequest<
       RequestPermissionsRequest,
       RequestPermissionsResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_request_permissions",
       params: { scopes },
@@ -139,24 +235,24 @@ export class Signer {
     return response.scopes as SignerPermissionScope[];
   }
 
-  public async grantedPermissions() {
+  async grantedPermissions() {
     const response = await this.sendRequest<
       GrantedPermissionsRequest,
       GrantedPermissionsResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_granted_permissions",
     });
     return response.scopes as SignerPermissionScope[];
   }
 
-  public async revokePermissions(scopes: SignerPermissionScope[]) {
+  async revokePermissions(scopes: SignerPermissionScope[]) {
     const response = await this.sendRequest<
       RevokePermissionsRequest,
       RevokePermissionsResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_revoke_permissions",
       params: { scopes },
@@ -164,12 +260,12 @@ export class Signer {
     return response.scopes as SignerPermissionScope[];
   }
 
-  public async getAccounts() {
+  async getAccounts() {
     const response = await this.sendRequest<
       GetAccountsRequest,
       GetAccountsResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc27_get_accounts",
     });
@@ -182,12 +278,12 @@ export class Signer {
     }));
   }
 
-  public async signChallenge(principal: Principal, challenge: ArrayBuffer) {
+  async signChallenge(principal: Principal, challenge: ArrayBuffer) {
     const response = await this.sendRequest<
       SignChallengeRequest,
       SignChallengeResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc32_sign_challenge",
       params: {
@@ -217,7 +313,7 @@ export class Signer {
     };
   }
 
-  public async getGlobalDelegation(params: {
+  async getGlobalDelegation(params: {
     publicKey: ArrayBuffer;
     principal: Principal;
     targets: Principal[];
@@ -227,7 +323,7 @@ export class Signer {
       GetGlobalDelegationRequest,
       GetGlobalDelegationResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc34_get_global_delegation",
       params: {
@@ -256,7 +352,7 @@ export class Signer {
     );
   }
 
-  public async getSessionDelegation(params: {
+  async getSessionDelegation(params: {
     publicKey: ArrayBuffer;
     maxTimeToLive?: bigint;
   }) {
@@ -264,7 +360,7 @@ export class Signer {
       GetSessionDelegationRequest,
       GetSessionDelegationResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc57_get_session_delegation",
       params: {
@@ -291,7 +387,7 @@ export class Signer {
     );
   }
 
-  public async callCanister(params: {
+  async callCanister(params: {
     canisterId: Principal;
     sender: Principal;
     method: string;
@@ -301,7 +397,7 @@ export class Signer {
       CallCanisterRequest,
       CallCanisterResponse
     >({
-      id: this.crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc49_call_canister",
       params: {

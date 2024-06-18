@@ -29,12 +29,35 @@ export type JsonResponseResult<T extends JsonResponse> = T extends {
   ? S
   : never;
 
-export interface Transport {
-  registerListener(
-    listener: (response: JsonResponse) => Promise<void>,
+export interface Connection {
+  connected: boolean;
+
+  addEventListener(event: "disconnect", listener: () => void): () => void;
+
+  connect(): Promise<void>;
+
+  disconnect(): Promise<void>;
+}
+
+export interface Channel {
+  closed: boolean;
+
+  addEventListener(event: "close", listener: () => void): () => void;
+
+  addEventListener(
+    event: "response",
+    listener: (response: JsonResponse) => void,
   ): () => void;
 
   send(requests: JsonRequest): Promise<void>;
+
+  close(): Promise<void>;
+}
+
+export interface Transport {
+  connection?: Connection;
+
+  establishChannel(): Promise<Channel>;
 }
 
 export const isJsonRpcMessage = (message: unknown): message is JsonRPC =>

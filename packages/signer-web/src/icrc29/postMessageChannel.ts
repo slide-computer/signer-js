@@ -15,36 +15,59 @@ export interface PostMessageChannelOptions {
    * Signer origin obtained when communication channel was established
    */
   origin: string;
+  /**
+   * Window close monitoring interval in ms
+   * @default 500
+   */
+  windowCloseMonitoringInterval?: number;
 }
 
 export class PostMessageChannel implements Channel {
+  #closeListeners = new Set<() => void>();
   #options: PostMessageChannelOptions;
 
   constructor(options: PostMessageChannelOptions) {
     this.#options = options;
+
+    const interval = setInterval(() => {
+      if (this.#options.window.closed) {
+        this.#closeListeners.forEach((listener) => listener());
+        clearInterval(interval);
+      }
+    }, this.#options.windowCloseMonitoringInterval ?? 500);
   }
 
   get closed() {
     return this.#options.window.closed;
   }
 
-  registerListener(
-    listener: (response: JsonResponse) => Promise<void>,
+  addEventListener(
+    ...[event, listener]:
+      | [event: "close", listener: () => void]
+      | [event: "response", listener: (response: JsonResponse) => void]
   ): () => void {
-    const messageListener = async (event: MessageEvent) => {
-      if (
-        event.source !== this.#options.window ||
-        event.origin !== this.#options.origin ||
-        !isJsonRpcResponse(event.data)
-      ) {
-        return;
-      }
-      await listener(event.data);
-    };
-    window.addEventListener("message", messageListener);
-    return () => {
-      window.removeEventListener("message", messageListener);
-    };
+    switch (event) {
+      case "close":
+        this.#closeListeners.add(listener);
+        return () => {
+          this.#closeListeners.delete(listener);
+        };
+      case "response":
+        const messageListener = async (event: MessageEvent) => {
+          if (
+            event.source !== this.#options.window ||
+            event.origin !== this.#options.origin ||
+            !isJsonRpcResponse(event.data)
+          ) {
+            return;
+          }
+          listener(event.data);
+        };
+        window.addEventListener("message", messageListener);
+        return () => {
+          window.removeEventListener("message", messageListener);
+        };
+    }
   }
 
   async send(request: JsonRequest): Promise<void> {

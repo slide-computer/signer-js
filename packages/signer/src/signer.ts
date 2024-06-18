@@ -147,39 +147,58 @@ export class Signer {
       const channel = await this.openChannel();
 
       // Listen on transport channel for incoming response
-      const listener = channel.registerListener(async (response) => {
-        if (response.id !== request.id) {
-          // Ignore responses that don't match the request id
-          return;
-        }
+      const responseListener = channel.addEventListener(
+        "response",
+        async (response) => {
+          if (response.id !== request.id) {
+            // Ignore responses that don't match the request id
+            return;
+          }
 
-        // Reject or resolve based on response value
-        if ("error" in response) {
-          reject(new SignerError(response.error));
-        }
-        if ("result" in response) {
-          resolve(response.result as JsonResponseResult<S>);
-        }
+          // Stop listening to events once a valid response has been received
+          responseListener();
+          closeListener();
 
-        // Stop listening to responses once a valid response has been received
-        listener();
+          // Reject or resolve based on response value
+          if ("error" in response) {
+            reject(new SignerError(response.error));
+          }
+          if ("result" in response) {
+            resolve(response.result as JsonResponseResult<S>);
+          }
 
-        // Close transport channel after a certain timeout
-        if (this.#options.closeTransportChannelAfter !== -1) {
-          this.#scheduledChannelClosure = setTimeout(() => {
-            if (!channel.closed) {
-              channel.close();
-            }
-          }, this.#options.closeTransportChannelAfter ?? 200);
-        }
+          // Close transport channel after a certain timeout
+          if (this.#options.closeTransportChannelAfter !== -1) {
+            this.#scheduledChannelClosure = setTimeout(() => {
+              if (!channel.closed) {
+                channel.close();
+              }
+            }, this.#options.closeTransportChannelAfter ?? 200);
+          }
+        },
+      );
+
+      // Monitor if channel is closed before a response has been received
+      const closeListener = channel.addEventListener("close", () => {
+        // Stop listening to events once a channel is closed
+        responseListener();
+
+        // Throw error if channel is closed before response is received
+        reject(
+          new SignerError({
+            code: NETWORK_ERROR,
+            message: "Channel was closed before a response was received",
+          }),
+        );
       });
 
       // Send outgoing request over transport channel
       try {
         await channel.send(request);
       } catch (error) {
-        listener();
-        throw wrapChannelError(error);
+        responseListener();
+        closeListener();
+        reject(wrapChannelError(error));
       }
     });
   }

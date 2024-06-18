@@ -29,11 +29,24 @@ export type JsonResponseResult<T extends JsonResponse> = T extends {
   ? S
   : never;
 
+export interface Connection {
+  connected: boolean;
+
+  addEventListener(event: "disconnect", listener: () => void): () => void;
+
+  connect(): Promise<void>;
+
+  disconnect(): Promise<void>;
+}
+
 export interface Channel {
   closed: boolean;
 
-  registerListener(
-    listener: (response: JsonResponse) => Promise<void>,
+  addEventListener(event: "close", listener: () => void): () => void;
+
+  addEventListener(
+    event: "response",
+    listener: (response: JsonResponse) => void,
   ): () => void;
 
   send(requests: JsonRequest): Promise<void>;
@@ -42,11 +55,7 @@ export interface Channel {
 }
 
 export interface Transport {
-  connected?: boolean;
-
-  connect?(): Promise<void>;
-
-  disconnect?(): Promise<void>;
+  connection?: Connection;
 
   establishChannel(): Promise<Channel>;
 }

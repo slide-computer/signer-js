@@ -1,16 +1,16 @@
 import type { PermissionScope } from "../icrc25";
 import type { JsonRequest, JsonResponse } from "../transport";
 
-export type GetAccountsPermissionScope = PermissionScope<"icrc27_get_accounts">;
+export type AccountsPermissionScope = PermissionScope<"icrc27_accounts">;
 
 export const createGetAccountsPermissionScope =
-  (): GetAccountsPermissionScope => ({
-    method: "icrc27_get_accounts",
+  (): AccountsPermissionScope => ({
+    method: "icrc27_accounts",
   });
 
-export type GetAccountsRequest = JsonRequest<"icrc27_get_accounts">;
+export type AccountsRequest = JsonRequest<"icrc27_accounts">;
 
-export type GetAccountsResponse = JsonResponse<{
+export type AccountsResponse = JsonResponse<{
   accounts: Array<{
     owner: string;
     subaccount?: string;

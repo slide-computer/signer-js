@@ -42,8 +42,7 @@ type DelegationKeyType = typeof ECDSA_KEY_LABEL | typeof ED25519_KEY_LABEL;
 
 export interface SignerAgentOptions {
   /** Signer instance that should be used to send ICRC-25 JSON-RPC messages */
-  signer: Pick<Signer, "callCanister"> &
-    Partial<Pick<Signer, "getGlobalDelegation">>;
+  signer: Pick<Signer, "callCanister"> & Partial<Pick<Signer, "delegation">>;
   /** Principal of account that should be used to make calls */
   getPrincipal: () => Promise<Principal> | Principal;
   /**
@@ -141,7 +140,7 @@ export class SignerAgent implements Agent {
 
     // Make delegated call when possible
     if (
-      this.options.signer.getGlobalDelegation &&
+      this.options.signer.delegation &&
       this.options.delegation &&
       (!this.options.delegation.targets ||
         this.options.delegation.targets.some(
@@ -213,7 +212,7 @@ export class SignerAgent implements Agent {
 
     // Make delegated query when possible
     if (
-      this.options.signer.getGlobalDelegation &&
+      this.options.signer.delegation &&
       this.options.delegation &&
       (!this.options.delegation.targets ||
         this.options.delegation.targets.some(
@@ -324,10 +323,8 @@ export class SignerAgent implements Agent {
     principal: Principal,
     publicKey: ArrayBuffer,
   ) {
-    if (!this.options.signer.getGlobalDelegation) {
-      throw new SignerAgentError(
-        "Signer is missing `getGlobalDelegation` method",
-      );
+    if (!this.options.signer.delegation) {
+      throw new SignerAgentError("Signer is missing `delegation` method");
     }
     if (!this.options.delegation) {
       throw new SignerAgentError("Delegation config is missing in options");
@@ -342,11 +339,19 @@ export class SignerAgent implements Agent {
     ) {
       return delegationChain;
     }
-    const newDelegationChain = await this.options.signer.getGlobalDelegation({
-      principal,
+    const newDelegationChain = await this.options.signer.delegation({
       publicKey,
       targets: this.options.delegation.targets,
     });
+    if (
+      Principal.selfAuthenticating(
+        new Uint8Array(newDelegationChain.publicKey),
+      ).compareTo(principal) !== "eq"
+    ) {
+      throw new SignerAgentError(
+        "Received delegation for different account than expected",
+      );
+    }
     await setDelegationChain(key, newDelegationChain, this.storage);
     return newDelegationChain;
   }

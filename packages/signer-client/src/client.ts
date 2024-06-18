@@ -144,7 +144,7 @@ export class SignerClient {
   }): Promise<void> {
     const baseIdentity = await this.getBaseIdentity();
     try {
-      const delegationChain = await this.options.signer.getSessionDelegation({
+      const delegationChain = await this.options.signer.delegation({
         publicKey: baseIdentity.getPublicKey().toDer(),
         maxTimeToLive: options?.maxTimeToLive,
       });

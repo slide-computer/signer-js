@@ -23,30 +23,20 @@ import type {
   SupportedStandardsResponse,
 } from "./icrc25";
 import type {
-  GetAccountsPermissionScope,
-  GetAccountsRequest,
-  GetAccountsResponse,
+  AccountsPermissionScope,
+  AccountsRequest,
+  AccountsResponse,
 } from "./icrc27";
 import type {
-  SignChallengePermissionScope,
-  SignChallengeRequest,
-  SignChallengeResponse,
-} from "./icrc32";
-import type {
-  GetGlobalDelegationPermissionScope,
-  GetGlobalDelegationRequest,
-  GetGlobalDelegationResponse,
+  DelegationPermissionScope,
+  DelegationRequest,
+  DelegationResponse,
 } from "./icrc34";
 import type {
   CallCanisterPermissionScope,
   CallCanisterRequest,
   CallCanisterResponse,
 } from "./icrc49";
-import type {
-  GetSessionDelegationPermissionScope,
-  GetSessionDelegationRequest,
-  GetSessionDelegationResponse,
-} from "./icrc57";
 import { NETWORK_ERROR } from "./errors";
 
 export class SignerError extends Error {
@@ -70,11 +60,9 @@ const wrapChannelError = (error: unknown) =>
 
 export type SignerPermissionScope =
   | PermissionScope
-  | GetAccountsPermissionScope
-  | SignChallengePermissionScope
-  | GetGlobalDelegationPermissionScope
-  | CallCanisterPermissionScope
-  | GetSessionDelegationPermissionScope;
+  | AccountsPermissionScope
+  | DelegationPermissionScope
+  | CallCanisterPermissionScope;
 
 export type SignerOptions = {
   /**
@@ -253,16 +241,13 @@ export class Signer {
     return response.scopes;
   }
 
-  async getAccounts(): Promise<
+  async accounts(): Promise<
     Array<{ owner: Principal; subaccount?: ArrayBuffer }>
   > {
-    const response = await this.sendRequest<
-      GetAccountsRequest,
-      GetAccountsResponse
-    >({
+    const response = await this.sendRequest<AccountsRequest, AccountsResponse>({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
-      method: "icrc27_get_accounts",
+      method: "icrc27_accounts",
     });
     return response.accounts.map(({ owner, subaccount }) => ({
       owner: Principal.fromText(owner),
@@ -273,65 +258,21 @@ export class Signer {
     }));
   }
 
-  async signChallenge(
-    principal: Principal,
-    challenge: ArrayBuffer,
-  ): Promise<{
+  async delegation(params: {
     publicKey: ArrayBuffer;
-    signature: ArrayBuffer;
-    delegationChain?: DelegationChain;
-  }> {
-    const response = await this.sendRequest<
-      SignChallengeRequest,
-      SignChallengeResponse
-    >({
-      id: this.#options.crypto.randomUUID(),
-      jsonrpc: "2.0",
-      method: "icrc32_sign_challenge",
-      params: {
-        principal: principal.toText(),
-        challenge: Buffer.from(challenge).toString("base64"),
-      },
-    });
-    return {
-      publicKey: Buffer.from(response.publicKey, "base64"),
-      signature: Buffer.from(response.signature, "base64"),
-      delegationChain:
-        response.signer_delegation &&
-        DelegationChain.fromDelegations(
-          response.signer_delegation.map((signedDelegation) => ({
-            delegation: new Delegation(
-              Buffer.from(signedDelegation.delegation.pubkey, "base64").buffer,
-              BigInt(signedDelegation.delegation.expiration),
-              signedDelegation.delegation.targets?.map((principal) =>
-                Principal.fromText(principal),
-              ),
-            ),
-            signature: Buffer.from(signedDelegation.signature, "base64")
-              .buffer as Signature,
-          })),
-          Buffer.from(response.publicKey, "base64").buffer,
-        ),
-    };
-  }
-
-  async getGlobalDelegation(params: {
-    publicKey: ArrayBuffer;
-    principal: Principal;
-    targets: Principal[];
+    targets?: Principal[];
     maxTimeToLive?: bigint;
   }): Promise<DelegationChain> {
     const response = await this.sendRequest<
-      GetGlobalDelegationRequest,
-      GetGlobalDelegationResponse
+      DelegationRequest,
+      DelegationResponse
     >({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
-      method: "icrc34_get_global_delegation",
+      method: "icrc34_delegation",
       params: {
         publicKey: Buffer.from(params.publicKey).toString("base64"),
-        principal: params.principal.toText(),
-        targets: params.targets.map((p) => p.toText()),
+        targets: params.targets?.map((p) => p.toText()),
         maxTimeToLive:
           params.maxTimeToLive === undefined
             ? undefined
@@ -339,50 +280,15 @@ export class Signer {
       },
     });
     return DelegationChain.fromDelegations(
-      response.global_delegation.map((signedDelegation) => ({
+      response.signerDelegation.map((delegation) => ({
         delegation: new Delegation(
-          Buffer.from(signedDelegation.delegation.pubkey, "base64").buffer,
-          BigInt(signedDelegation.delegation.expiration),
-          signedDelegation.delegation.targets?.map((principal) =>
+          Buffer.from(delegation.delegation.pubkey, "base64").buffer,
+          BigInt(delegation.delegation.expiration),
+          delegation.delegation.targets?.map((principal) =>
             Principal.fromText(principal),
           ),
         ),
-        signature: Buffer.from(signedDelegation.signature, "base64")
-          .buffer as Signature,
-      })),
-      Buffer.from(response.publicKey, "base64").buffer,
-    );
-  }
-
-  async getSessionDelegation(params: {
-    publicKey: ArrayBuffer;
-    maxTimeToLive?: bigint;
-  }): Promise<DelegationChain> {
-    const response = await this.sendRequest<
-      GetSessionDelegationRequest,
-      GetSessionDelegationResponse
-    >({
-      id: this.#options.crypto.randomUUID(),
-      jsonrpc: "2.0",
-      method: "icrc57_get_session_delegation",
-      params: {
-        publicKey: Buffer.from(params.publicKey).toString("base64"),
-        maxTimeToLive:
-          params.maxTimeToLive === undefined
-            ? undefined
-            : String(params.maxTimeToLive),
-      },
-    });
-    return DelegationChain.fromDelegations(
-      response.session_delegation.map((signedDelegation) => ({
-        delegation: new Delegation(
-          Buffer.from(signedDelegation.delegation.pubkey, "base64").buffer,
-          BigInt(signedDelegation.delegation.expiration),
-          signedDelegation.delegation.targets?.map((principal) =>
-            Principal.fromText(principal),
-          ),
-        ),
-        signature: Buffer.from(signedDelegation.signature, "base64")
+        signature: Buffer.from(delegation.signature, "base64")
           .buffer as Signature,
       })),
       Buffer.from(response.publicKey, "base64").buffer,

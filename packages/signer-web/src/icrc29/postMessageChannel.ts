@@ -10,35 +10,50 @@ export interface PostMessageChannelOptions {
   /**
    * Signer window with which a communication channel has been established
    */
-  window: Window;
+  signerWindow: Window;
   /**
    * Signer origin obtained when communication channel was established
    */
-  origin: string;
+  signerOrigin: string;
+  /**
+   * Relying party window, used to listen for incoming message events
+   * @default globalThis.window
+   */
+  window?: Window;
   /**
    * Window close monitoring interval in ms
    * @default 500
    */
   windowCloseMonitoringInterval?: number;
+  /**
+   * Manage focus between relying party and signer window
+   * @default true
+   */
+  manageFocus?: boolean;
 }
 
 export class PostMessageChannel implements Channel {
   #closeListeners = new Set<() => void>();
-  #options: PostMessageChannelOptions;
+  #options: Required<PostMessageChannelOptions>;
 
   constructor(options: PostMessageChannelOptions) {
-    this.#options = options;
+    this.#options = {
+      window: globalThis.window,
+      windowCloseMonitoringInterval: 500,
+      manageFocus: true,
+      ...options,
+    };
 
     const interval = setInterval(() => {
-      if (this.#options.window.closed) {
+      if (this.#options.signerWindow.closed) {
         this.#closeListeners.forEach((listener) => listener());
         clearInterval(interval);
       }
-    }, this.#options.windowCloseMonitoringInterval ?? 500);
+    }, this.#options.windowCloseMonitoringInterval);
   }
 
   get closed() {
-    return this.#options.window.closed;
+    return this.#options.signerWindow.closed;
   }
 
   addEventListener(
@@ -55,29 +70,38 @@ export class PostMessageChannel implements Channel {
       case "response":
         const messageListener = async (event: MessageEvent) => {
           if (
-            event.source !== this.#options.window ||
-            event.origin !== this.#options.origin ||
+            event.source !== this.#options.signerWindow ||
+            event.origin !== this.#options.signerOrigin ||
             !isJsonRpcResponse(event.data)
           ) {
             return;
           }
           listener(event.data);
         };
-        window.addEventListener("message", messageListener);
+        this.#options.window.addEventListener("message", messageListener);
         return () => {
-          window.removeEventListener("message", messageListener);
+          this.#options.window.removeEventListener("message", messageListener);
         };
     }
   }
 
   async send(request: JsonRequest): Promise<void> {
-    if (this.#options.window.closed) {
+    if (this.#options.signerWindow.closed) {
       throw new PostMessageTransportError("Communication channel is closed");
     }
-    this.#options.window.postMessage(request, this.#options.origin);
+
+    this.#options.signerWindow.postMessage(request, this.#options.signerOrigin);
+
+    if (this.#options.manageFocus) {
+      this.#options.signerWindow.focus();
+    }
   }
 
   async close(): Promise<void> {
-    this.#options.window.close();
+    this.#options.signerWindow.close();
+
+    if (this.#options.manageFocus) {
+      this.#options.window.focus();
+    }
   }
 }

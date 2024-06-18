@@ -18,8 +18,13 @@ export interface PostMessageTransportOptions {
    */
   openWindow: () => Window;
   /**
+   * Relying party window, used to listen for incoming message events
+   * @default globalThis.window
+   */
+  window?: Window;
+  /**
    * Get random uuid implementation for status messages
-   * @default window.crypto
+   * @default globalThis.crypto
    */
   crypto?: Pick<Crypto, "randomUUID">;
   /**
@@ -35,14 +40,16 @@ export interface PostMessageTransportOptions {
 }
 
 export class PostMessageTransport implements Transport {
-  #options: PostMessageTransportOptions;
+  #options: Required<PostMessageTransportOptions>;
 
   constructor(options: PostMessageTransportOptions) {
-    this.#options = options;
-  }
-
-  get #crypto() {
-    return this.#options.crypto ?? globalThis.crypto;
+    this.#options = {
+      window: globalThis.window,
+      crypto: globalThis.crypto,
+      statusPollingRate: 200,
+      statusTimeout: 5000,
+      ...options,
+    };
   }
 
   async establishChannel(): Promise<Channel> {
@@ -51,7 +58,7 @@ export class PostMessageTransport implements Transport {
       const signerWindow = this.#options.openWindow();
 
       // Status message id
-      const id = this.#crypto.randomUUID();
+      const id = this.#options.crypto.randomUUID();
 
       // Listen for "status: ready" message
       const listener = (event: MessageEvent) => {
@@ -64,15 +71,11 @@ export class PostMessageTransport implements Transport {
         ) {
           return;
         }
+        const signerOrigin = event.origin;
         clearInterval(interval);
         clearTimeout(timeout);
         window.removeEventListener("message", listener);
-        resolve(
-          new PostMessageChannel({
-            window: signerWindow,
-            origin: event.origin,
-          }),
-        );
+        resolve(new PostMessageChannel({ signerWindow, signerOrigin }));
       };
       window.addEventListener("message", listener);
 
@@ -82,7 +85,7 @@ export class PostMessageTransport implements Transport {
           { jsonrpc: "2.0", id, method: "icrc29_status" },
           "*",
         );
-      }, this.#options.statusPollingRate ?? 200);
+      }, this.#options.statusPollingRate);
 
       // Throw error on timeout
       const timeout = setTimeout(() => {
@@ -93,7 +96,7 @@ export class PostMessageTransport implements Transport {
             "Establish communication channel timeout",
           ),
         );
-      }, this.#options.statusTimeout ?? 5000);
+      }, this.#options.statusTimeout);
     });
   }
 }

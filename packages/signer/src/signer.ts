@@ -82,7 +82,12 @@ export type SignerOptions = {
    */
   transport: Transport;
   /**
-   * Automatically close transport channel after a given duration in ms, set to -1 to disable.
+   * Automatically close transport channel after response has been received
+   * @default true
+   */
+  autoCloseTransportChannel?: boolean;
+  /**
+   * Close transport channel after a given duration in ms
    * @default 200
    */
   closeTransportChannelAfter?: number;
@@ -94,17 +99,18 @@ export type SignerOptions = {
 };
 
 export class Signer {
-  #options: SignerOptions;
+  #options: Required<SignerOptions>;
   #channel?: Channel;
   #establishingChannel?: Promise<void>;
   #scheduledChannelClosure?: number;
 
   constructor(options: SignerOptions) {
-    this.#options = options;
-  }
-
-  get #crypto() {
-    return this.#options.crypto ?? globalThis.crypto;
+    this.#options = {
+      autoCloseTransportChannel: true,
+      closeTransportChannelAfter: 200,
+      crypto: globalThis.crypto,
+      ...options,
+    };
   }
 
   async openChannel(): Promise<Channel> {
@@ -168,12 +174,12 @@ export class Signer {
           }
 
           // Close transport channel after a certain timeout
-          if (this.#options.closeTransportChannelAfter !== -1) {
+          if (this.#options.autoCloseTransportChannel) {
             this.#scheduledChannelClosure = setTimeout(() => {
               if (!channel.closed) {
                 channel.close();
               }
-            }, this.#options.closeTransportChannelAfter ?? 200);
+            }, this.#options.closeTransportChannelAfter);
           }
         },
       );
@@ -182,6 +188,7 @@ export class Signer {
       const closeListener = channel.addEventListener("close", () => {
         // Stop listening to events once a channel is closed
         responseListener();
+        closeListener();
 
         // Throw error if channel is closed before response is received
         reject(
@@ -208,7 +215,7 @@ export class Signer {
       SupportedStandardsRequest,
       SupportedStandardsResponse
     >({
-      id: this.#crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_supported_standards",
     });
@@ -220,7 +227,7 @@ export class Signer {
       RequestPermissionsRequest,
       RequestPermissionsResponse
     >({
-      id: this.#crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_request_permissions",
       params: { scopes },
@@ -233,7 +240,7 @@ export class Signer {
       GrantedPermissionsRequest,
       GrantedPermissionsResponse
     >({
-      id: this.#crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_granted_permissions",
     });
@@ -245,7 +252,7 @@ export class Signer {
       RevokePermissionsRequest,
       RevokePermissionsResponse
     >({
-      id: this.#crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_revoke_permissions",
       params: { scopes },
@@ -258,7 +265,7 @@ export class Signer {
       GetAccountsRequest,
       GetAccountsResponse
     >({
-      id: this.#crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc27_get_accounts",
     });
@@ -276,7 +283,7 @@ export class Signer {
       SignChallengeRequest,
       SignChallengeResponse
     >({
-      id: this.#crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc32_sign_challenge",
       params: {
@@ -316,7 +323,7 @@ export class Signer {
       GetGlobalDelegationRequest,
       GetGlobalDelegationResponse
     >({
-      id: this.#crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc34_get_global_delegation",
       params: {
@@ -353,7 +360,7 @@ export class Signer {
       GetSessionDelegationRequest,
       GetSessionDelegationResponse
     >({
-      id: this.#crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc57_get_session_delegation",
       params: {
@@ -390,7 +397,7 @@ export class Signer {
       CallCanisterRequest,
       CallCanisterResponse
     >({
-      id: this.#crypto.randomUUID(),
+      id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc49_call_canister",
       params: {

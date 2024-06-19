@@ -40,7 +40,7 @@
     "build": "tsc -b && tsc -p tsconfig-cjs.json"
   },
   "peerDependencies": {
-    "@dfinity/identity": "^1.0.1"
+    "@dfinity/identity": " ^1.4.0"
   },
   "dependencies": {
     "idb-keyval": "^6.2.1"

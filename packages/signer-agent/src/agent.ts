@@ -6,6 +6,7 @@ import {
   type CreateCertificateOptions,
   HttpAgent,
   type Identity,
+  LookupStatus,
   type QueryFields,
   type QueryResponseStatus,
   type ReadStateOptions,
@@ -243,19 +244,25 @@ export class SignerAgent implements Agent {
       new TextEncoder().encode("request_status"),
       submitResponse.requestId,
     ];
-    const maybeBuf = certificate.lookup([
-      ...path,
-      new TextEncoder().encode("status"),
-    ]);
-    const status = maybeBuf && new TextDecoder().decode(maybeBuf);
+    const statusLookupResult = certificate.lookup([...path, "status"]);
+    if (statusLookupResult.status !== LookupStatus.Found) {
+      throw new SignerAgentError("Certificate is missing status");
+    }
+    const status = new TextDecoder().decode(
+      statusLookupResult.value as ArrayBuffer,
+    );
     if (status !== "replied") {
+      throw new SignerAgentError("Certificate status is not replied");
+    }
+    const replyLookupResult = certificate.lookup([...path, "reply"]);
+    if (replyLookupResult.status !== LookupStatus.Found) {
       throw new SignerAgentError("Certificate is missing reply");
     }
     return {
       requestId: submitResponse.requestId,
       status: "replied" as QueryResponseStatus.Replied,
       reply: {
-        arg: certificate.lookup([...path, "reply"])!,
+        arg: replyLookupResult.value as ArrayBuffer,
       },
       httpDetails: {
         ok: true,

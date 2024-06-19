@@ -52,10 +52,10 @@ export class SignerError extends Error {
   }
 }
 
-const wrapChannelError = (error: unknown) =>
+const wrapTransportError = (error: unknown) =>
   new SignerError({
     code: NETWORK_ERROR,
-    message: error instanceof Error ? error.message : "Something went wrong",
+    message: error instanceof Error ? error.message : "Network error",
   });
 
 export type SignerPermissionScope =
@@ -123,7 +123,7 @@ export class Signer {
     this.#channel = undefined;
     // Assign transport channel once established
     this.#channel = await channel.catch((error) => {
-      throw wrapChannelError(error);
+      throw wrapTransportError(error);
     });
     // Remove transport channel being established indicator
     this.#establishingChannel = undefined;
@@ -195,7 +195,7 @@ export class Signer {
       } catch (error) {
         responseListener();
         closeListener();
-        reject(wrapChannelError(error));
+        reject(wrapTransportError(error));
       }
     });
   }

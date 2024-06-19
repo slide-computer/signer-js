@@ -25,6 +25,14 @@ To get started with the signer, run
 const signer = new Signer({transport});
 ```
 
+Make sure to connect before using signer if the transport requires a connection
+
+```js
+if (transport.connection && !transport.connection.connected) {
+  await transport.connection.connect();
+}
+```
+
 The signer can for example get accounts with
 
 ```js

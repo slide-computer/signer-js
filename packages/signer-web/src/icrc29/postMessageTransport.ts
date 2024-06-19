@@ -8,7 +8,7 @@ import { PostMessageChannel } from "./postMessageChannel";
 export class PostMessageTransportError extends Error {
   constructor(message: string) {
     super(message);
-    Object.setPrototypeOf(this, PostMessageTransport.prototype);
+    Object.setPrototypeOf(this, PostMessageTransportError.prototype);
   }
 }
 
@@ -37,6 +37,16 @@ export interface PostMessageTransportOptions {
    * @default 5000
    */
   statusTimeout?: number;
+  /**
+   * Window close monitoring interval in ms
+   * @default 500
+   */
+  windowCloseMonitoringInterval?: number;
+  /**
+   * Manage focus between relying party and signer window
+   * @default true
+   */
+  manageFocus?: boolean;
 }
 
 export class PostMessageTransport implements Transport {
@@ -48,6 +58,8 @@ export class PostMessageTransport implements Transport {
       crypto: globalThis.crypto,
       statusPollingRate: 200,
       statusTimeout: 5000,
+      windowCloseMonitoringInterval: 500,
+      manageFocus: true,
       ...options,
     };
   }
@@ -71,13 +83,21 @@ export class PostMessageTransport implements Transport {
         ) {
           return;
         }
-        const signerOrigin = event.origin;
         clearInterval(interval);
         clearTimeout(timeout);
-        window.removeEventListener("message", listener);
-        resolve(new PostMessageChannel({ signerWindow, signerOrigin }));
+        this.#options.window.removeEventListener("message", listener);
+        resolve(
+          new PostMessageChannel({
+            signerWindow,
+            signerOrigin: event.origin,
+            window: this.#options.window,
+            windowCloseMonitoringInterval:
+              this.#options.windowCloseMonitoringInterval,
+            manageFocus: this.#options.manageFocus,
+          }),
+        );
       };
-      window.addEventListener("message", listener);
+      this.#options.window.addEventListener("message", listener);
 
       // Poll status
       const interval = setInterval(() => {
@@ -90,7 +110,7 @@ export class PostMessageTransport implements Transport {
       // Throw error on timeout
       const timeout = setTimeout(() => {
         clearInterval(interval);
-        window.removeEventListener("message", listener);
+        this.#options.window.removeEventListener("message", listener);
         reject(
           new PostMessageTransportError(
             "Establish communication channel timeout",

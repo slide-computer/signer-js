@@ -10,16 +10,14 @@ export const isJsonRpcError = (error: number) =>
   error >= -32768 && error <= -32000;
 
 // ICRC-25 errors
-export const UNKNOWN_ERROR = 10001;
-export const VERSION_NOT_SUPPORTED_ERROR = 20101;
-export const PERMISSION_NOT_GRANTED_ERROR = 30101;
-export const ACTION_ABORTED_ERROR = 30201;
-export const NETWORK_ERROR = 40001;
-export const isGeneralError = (error: number) =>
-  error >= 10000 && error <= 19999;
+export const GENERIC_ERROR = 1000;
+export const NOT_SUPPORTED_ERROR = 2000;
+export const PERMISSION_NOT_GRANTED_ERROR = 3000;
+export const ACTION_ABORTED_ERROR = 3001;
+export const NETWORK_ERROR = 4000;
+export const isGeneralError = (error: number) => error >= 1000 && error <= 1999;
 export const isNotSupportedError = (error: number) =>
-  error >= 20000 && error <= 29999;
+  error >= 2000 && error <= 2999;
 export const isUserActionError = (error: number) =>
-  error >= 30000 && error <= 39999;
-export const isNetworkError = (error: number) =>
-  error >= 40000 && error <= 49999;
+  error >= 3000 && error <= 3999;
+export const isNetworkError = (error: number) => error >= 4000 && error <= 4999;

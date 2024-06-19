@@ -10,7 +10,8 @@
       "./packages/signer-agent",
       "./packages/signer-client",
       "./packages/signer-signatures",
-      "./packages/signer-web"
+      "./packages/signer-web",
+      "./packages/signer-transport-auth-client"
     ]
   },
   "scripts": {

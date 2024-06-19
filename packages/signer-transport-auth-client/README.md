@@ -1,6 +1,6 @@
 # @slide-computer/signer-transport-auth-client
 
-JavaScript and TypeScript library to communicate with web signers on the Internet Computer.
+JavaScript and TypeScript library to communicate with Internet Identity on the Internet Computer.
 
 ---
 

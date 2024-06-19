@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-transport-auth-client",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "author": "Slide",
   "license": "MIT",
   "description": "JavaScript and TypeScript library to communicate with Internet Identity on the Internet Computer",

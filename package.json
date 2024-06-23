@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer",
-  "version": "2.2.0",
+  "version": "2.5.4",
   "private": true,
   "description": "Initiate transactions and authenticate with signers on the Internet Computer",
   "workspaces": {
@@ -11,7 +11,8 @@
       "./packages/signer-client",
       "./packages/signer-signatures",
       "./packages/signer-web",
-      "./packages/signer-transport-auth-client"
+      "./packages/signer-transport-auth-client",
+      "./packages/signer-transport-stoic"
     ]
   },
   "scripts": {
@@ -22,6 +23,7 @@
   "devDependencies": {
     "eslint": "^8.56.0",
     "prettier": "^3.2.5",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "@types/node": "^20.14.7"
   }
 }

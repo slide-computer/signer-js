@@ -6,3 +6,4 @@ export * from "./icrc49";
 export * from "./signer";
 export * from "./errors";
 export * from "./transport";
+export * from "./utils";

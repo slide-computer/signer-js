@@ -5,11 +5,11 @@ import {
   type JsonRequest,
   type JsonResponse,
   NOT_SUPPORTED_ERROR,
+  toBase64,
 } from "@slide-computer/signer";
 import { AuthClientTransportError } from "./authClientTransport";
 import { scopes, supportedStandards } from "./constants";
 import type { DelegationIdentity } from "@dfinity/identity";
-import { Buffer } from "buffer";
 
 export interface AuthClientChannelOptions {
   /**
@@ -74,7 +74,9 @@ export class AuthClientChannel implements Channel {
     this.#responseListeners.forEach((listener) => listener(response));
   }
 
-  async close(): Promise<void> {}
+  async close(): Promise<void> {
+    this.#closed = true;
+  }
 
   #createResponse(request: JsonRequest): JsonResponse {
     if (request.id === undefined) {
@@ -103,11 +105,11 @@ export class AuthClientChannel implements Channel {
           id: request.id,
           jsonrpc: "2.0",
           result: {
-            publicKey: Buffer.from(delegation.publicKey).toString("base64"),
+            publicKey: toBase64(delegation.publicKey),
             signerDelegation: delegation.delegations.map(
               ({ delegation, signature }) => ({
                 delegation: {
-                  pubkey: Buffer.from(delegation.pubkey).toString("base64"),
+                  pubkey: toBase64(delegation.pubkey),
                   expiration: delegation.expiration.toString(),
                   ...(delegation.targets
                     ? {
@@ -117,7 +119,7 @@ export class AuthClientChannel implements Channel {
                       }
                     : {}),
                 },
-                signature: Buffer.from(signature).toString("base64"),
+                signature: toBase64(signature),
               }),
             ),
           },

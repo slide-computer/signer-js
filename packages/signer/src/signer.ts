@@ -1,7 +1,6 @@
-import { Buffer } from "buffer";
 import { Principal } from "@dfinity/principal";
 import { Delegation, DelegationChain } from "@dfinity/identity";
-import type { Signature } from "@dfinity/agent";
+import { type Signature } from "@dfinity/agent";
 import type { JsonValue } from "@dfinity/candid";
 import type {
   Channel,
@@ -38,6 +37,7 @@ import type {
   CallCanisterResponse,
 } from "./icrc49";
 import { NETWORK_ERROR } from "./errors";
+import { fromBase64, toBase64 } from "./utils";
 
 export class SignerError extends Error {
   public code: number;
@@ -81,16 +81,16 @@ export type SignerOptions = {
   closeTransportChannelAfter?: number;
   /**
    * Get random uuid implementation for request message ids
-   * @default window.crypto
+   * @default globalThis.crypto
    */
   crypto?: Pick<Crypto, "randomUUID">;
 };
 
 export class Signer {
-  #options: Required<SignerOptions>;
+  readonly #options: Required<SignerOptions>;
   #channel?: Channel;
   #establishingChannel?: Promise<void>;
-  #scheduledChannelClosure?: number;
+  #scheduledChannelClosure?: ReturnType<typeof setTimeout>;
 
   constructor(options: SignerOptions) {
     this.#options = {
@@ -251,10 +251,7 @@ export class Signer {
     });
     return response.accounts.map(({ owner, subaccount }) => ({
       owner: Principal.fromText(owner),
-      subaccount:
-        subaccount === undefined
-          ? undefined
-          : Buffer.from(subaccount, "base64").buffer,
+      subaccount: subaccount === undefined ? undefined : fromBase64(subaccount),
     }));
   }
 
@@ -271,7 +268,7 @@ export class Signer {
       jsonrpc: "2.0",
       method: "icrc34_delegation",
       params: {
-        publicKey: Buffer.from(params.publicKey).toString("base64"),
+        publicKey: toBase64(params.publicKey),
         targets: params.targets?.map((p) => p.toText()),
         maxTimeToLive:
           params.maxTimeToLive === undefined
@@ -282,16 +279,15 @@ export class Signer {
     return DelegationChain.fromDelegations(
       response.signerDelegation.map((delegation) => ({
         delegation: new Delegation(
-          Buffer.from(delegation.delegation.pubkey, "base64").buffer,
+          fromBase64(delegation.delegation.pubkey),
           BigInt(delegation.delegation.expiration),
           delegation.delegation.targets?.map((principal) =>
             Principal.fromText(principal),
           ),
         ),
-        signature: Buffer.from(delegation.signature, "base64")
-          .buffer as Signature,
+        signature: fromBase64(delegation.signature) as Signature,
       })),
-      Buffer.from(response.publicKey, "base64").buffer,
+      fromBase64(response.publicKey),
     );
   }
 
@@ -312,12 +308,11 @@ export class Signer {
         canisterId: params.canisterId.toText(),
         sender: params.sender.toText(),
         method: params.method,
-        arg: Buffer.from(params.arg).toString("base64"),
+        arg: toBase64(params.arg),
       },
     });
-    return {
-      contentMap: Buffer.from(response.contentMap, "base64").buffer,
-      certificate: Buffer.from(response.certificate, "base64").buffer,
-    };
+    const contentMap = fromBase64(response.contentMap);
+    const certificate = fromBase64(response.certificate);
+    return { contentMap, certificate };
   }
 }

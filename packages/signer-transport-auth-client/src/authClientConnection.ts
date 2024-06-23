@@ -22,7 +22,7 @@ interface AuthClientConnectionOptions {
 export class AuthClientConnection implements Connection {
   #options: Required<AuthClientConnectionOptions>;
   #disconnectListeners = new Set<() => void>();
-  #disconnectMonitorInterval?: number;
+  #disconnectMonitorInterval?: ReturnType<typeof setInterval>;
 
   constructor(options: AuthClientConnectionOptions) {
     this.#options = {
@@ -61,7 +61,7 @@ export class AuthClientConnection implements Connection {
   }
 
   async disconnect(): Promise<void> {
-    clearTimeout(this.#disconnectMonitorInterval);
+    clearInterval(this.#disconnectMonitorInterval);
     await this.#options.authClient.logout();
     this.#disconnectListeners.forEach((listener) => listener());
   }

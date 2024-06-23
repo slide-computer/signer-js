@@ -21,23 +21,24 @@ import { SignerAgent } from "@slide-computer/signer-agent";
 To get started with the signerAgent, run
 
 ```js
-const signerAgent = new SignerAgent({
+const accounts = await signer.accounts();
+const agent = new SignerAgent({
   signer,
-  getPrincipal: () => {
-    return accounts[0].owner; // For example, make calls as first principal
-  }
+  account: accounts[0].owner
 });
 ```
 
 The signerAgent can initiate a transaction with
 
 ```js
+import {IcrcLedgerCanister} from "@dfinity/ledger-icrc";
+
 const {transfer} = IcrcLedgerCanister.create({
-  agent: signerAgent,
+  agent,
   canisterId: MY_LEDGER_CANISTER_ID,
 });
 const blockIndex = await transfer({
-  to: account,
+  to: TARGET_ACCOUNT,
   amount: 100_000_000
 });
 ```

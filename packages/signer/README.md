@@ -36,11 +36,11 @@ if (transport.connection && !transport.connection.connected) {
 The signer can for example get accounts with
 
 ```js
-const accounts = await signer.getAccounts();
+const accounts = await signer.accounts();
 ```
 
 Optionally, the permission can be requested beforehand to get accounts
 
 ```js
-const permissions = await signer.requestPermissions([createGetAccountsPermissionScope()]);
+const permissions = await signer.requestPermissions([createAccountsPermissionScope()]);
 ```

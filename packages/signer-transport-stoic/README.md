@@ -1,24 +1,24 @@
 # @slide-computer/signer-transport-auth-client
 
-JavaScript and TypeScript library to communicate with Internet Identity on the Internet Computer.
+JavaScript and TypeScript library to communicate with Stoic Wallet on the Internet Computer.
 
 ---
 
 ## Installation
 
-Using AuthClientTransport:
+Using Stoic transport:
 
 ```
-npm i --save @slide-computer/signer-transport-auth-client
+npm i --save @slide-computer/signer-transport-stoic
 ```
 
 ## In the browser:
 
 ```
-import { AuthClientTransport } from "@slide-computer/signer-transport-auth-client";
+import { StoicTransport } from "@slide-computer/signer-transport-stoic";
 ```
 
-To create an AuthClient transport, run
+To create a Stoic transport, run
 
 ```js
 const transport = await StoicTransport.create();

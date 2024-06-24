@@ -64,7 +64,7 @@ export const isJsonRpcMessage = (message: unknown): message is JsonRPC =>
   typeof message === "object" &&
   !!message &&
   "jsonrpc" in message &&
-  message.jsonrpc !== "2.0";
+  message.jsonrpc === "2.0";
 
 export const isJsonRpcRequest = (message: unknown): message is JsonRequest =>
   isJsonRpcMessage(message) &&

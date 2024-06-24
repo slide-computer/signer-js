@@ -2,6 +2,8 @@ import type { AuthClient } from "@dfinity/auth-client";
 import {
   type Channel,
   type Connection,
+  INVALID_REQUEST_ERROR,
+  isJsonRpcRequest,
   type JsonRequest,
   type JsonResponse,
   NOT_SUPPORTED_ERROR,
@@ -65,12 +67,13 @@ export class AuthClientChannel implements Channel {
     }
 
     // Ignore one way messages
-    if (request.id === undefined) {
+    const id = request.id;
+    if (id === undefined) {
       return;
     }
 
     // Create response and call listeners
-    const response = this.#createResponse(request);
+    const response = await this.#createResponse({ id, ...request });
     this.#responseListeners.forEach((listener) => listener(response));
   }
 
@@ -78,22 +81,30 @@ export class AuthClientChannel implements Channel {
     this.#closed = true;
   }
 
-  #createResponse(request: JsonRequest): JsonResponse {
-    if (request.id === undefined) {
-      throw new AuthClientTransportError("Request is missing id");
+  async #createResponse(
+    request: JsonRequest & { id: NonNullable<JsonRequest["id"]> },
+  ): Promise<JsonResponse> {
+    const id = request.id;
+
+    if (!isJsonRpcRequest(request)) {
+      return {
+        id,
+        jsonrpc: "2.0",
+        error: { code: INVALID_REQUEST_ERROR, message: "Invalid request" },
+      };
     }
 
     switch (request.method) {
       case "icrc25_supported_standards":
         return {
-          id: request.id,
+          id,
           jsonrpc: "2.0",
           result: { supportedStandards },
         };
       case "icrc25_permissions":
       case "icrc25_request_permissions":
         return {
-          id: request.id,
+          id,
           jsonrpc: "2.0",
           result: { scopes },
         };
@@ -102,7 +113,7 @@ export class AuthClientChannel implements Channel {
           this.#options.authClient.getIdentity() as DelegationIdentity;
         const delegation = identity.getDelegation();
         return {
-          id: request.id,
+          id,
           jsonrpc: "2.0",
           result: {
             publicKey: toBase64(delegation.publicKey),
@@ -126,7 +137,7 @@ export class AuthClientChannel implements Channel {
         };
       default:
         return {
-          id: request.id,
+          id,
           jsonrpc: "2.0",
           error: { code: NOT_SUPPORTED_ERROR, message: "Not supported" },
         };

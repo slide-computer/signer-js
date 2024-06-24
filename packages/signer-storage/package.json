@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-storage",
-  "version": "2.5.4",
+  "version": "2.6.1",
   "author": "Slide",
   "license": "MIT",
   "description": "Storage implementation for signer library on the Internet Computer",

@@ -199,9 +199,14 @@ export class StoicConnection implements Connection {
         }
         if (
           event.source === tunnel.contentWindow &&
-          event.data.target === "STOIC-EXT" &&
-          event.data.success
+          event.data.target === "STOIC-EXT"
         ) {
+          if (!event.data.success) {
+            window.removeEventListener("message", listener);
+            document.body.removeChild(tunnel);
+            reject(new StoicTransportError(event.data.data));
+            return;
+          }
           switch (event.data.action) {
             case "accounts":
               this.#accounts = JSON.parse(event.data.data).length;
@@ -216,7 +221,7 @@ export class StoicConnection implements Connection {
                 data.chain && DelegationChain.fromJSON(data.chain);
               this.#delegationChain = DelegationChain.fromDelegations(
                 [
-                  ...previousDelegationChain?.delegations,
+                  ...(previousDelegationChain?.delegations ?? []),
                   { delegation, signature },
                 ],
                 publicKey,

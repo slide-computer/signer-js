@@ -3,6 +3,8 @@ import {
   type Channel,
   type DelegationRequest,
   fromBase64,
+  INVALID_REQUEST_ERROR,
+  isJsonRpcRequest,
   type JsonRequest,
   type JsonResponse,
   NOT_SUPPORTED_ERROR,
@@ -61,12 +63,13 @@ export class StoicChannel implements Channel {
     }
 
     // Ignore one way messages
-    if (request.id === undefined) {
+    const id = request.id;
+    if (id === undefined) {
       return;
     }
 
     // Create response and call listeners
-    const response = await this.#createResponse(request);
+    const response = await this.#createResponse({ id, ...request });
     this.#responseListeners.forEach((listener) => listener(response));
   }
 
@@ -74,22 +77,30 @@ export class StoicChannel implements Channel {
     this.#closed = true;
   }
 
-  async #createResponse(request: JsonRequest): Promise<JsonResponse> {
-    if (request.id === undefined) {
-      throw new StoicTransportError("Request is missing id");
+  async #createResponse(
+    request: JsonRequest & { id: NonNullable<JsonRequest["id"]> },
+  ): Promise<JsonResponse> {
+    const id = request.id;
+
+    if (!isJsonRpcRequest(request)) {
+      return {
+        id,
+        jsonrpc: "2.0",
+        error: { code: INVALID_REQUEST_ERROR, message: "Invalid request" },
+      };
     }
 
     switch (request.method) {
       case "icrc25_supported_standards":
         return {
-          id: request.id,
+          id,
           jsonrpc: "2.0",
           result: { supportedStandards },
         };
       case "icrc25_permissions":
       case "icrc25_request_permissions":
         return {
-          id: request.id,
+          id,
           jsonrpc: "2.0",
           result: { scopes },
         };
@@ -98,7 +109,7 @@ export class StoicChannel implements Channel {
           new Uint8Array(this.#connection.delegationChain!.publicKey),
         ).toText();
         return {
-          id: request.id,
+          id,
           jsonrpc: "2.0",
           result: {
             accounts: Array.from({
@@ -138,7 +149,7 @@ export class StoicChannel implements Channel {
           },
         );
         return {
-          id: request.id,
+          id,
           jsonrpc: "2.0",
           result: {
             publicKey: toBase64(signedDelegationChain.publicKey),
@@ -198,7 +209,7 @@ export class StoicChannel implements Channel {
           ],
         });
         return {
-          id: request.id,
+          id,
           jsonrpc: "2.0",
           result: {
             contentMap: toBase64(contentMap!),
@@ -207,7 +218,7 @@ export class StoicChannel implements Channel {
         };
       default:
         return {
-          id: request.id,
+          id,
           jsonrpc: "2.0",
           error: { code: NOT_SUPPORTED_ERROR, message: "Not supported" },
         };

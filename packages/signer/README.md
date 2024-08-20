@@ -44,3 +44,23 @@ Optionally, the permission can be requested beforehand to get accounts
 ```js
 const permissions = await signer.requestPermissions([createAccountsPermissionScope()]);
 ```
+
+### Making canister calls
+
+The `@slide-computer/signer-agent` package offers `SignerAgent` as drop in replacement of `HttpAgent`.
+
+Besides making canister calls through signers that need to be approved by users, calls can also be made after requesting
+a delegation from the signer with the `delegation()` method. This delegation can then be used to create
+a `DelegationIdentity` which in turn can be used with the `HttpAgent`.
+
+## List of available transports
+
+Efforts are made to standardize the transports, for example ICRC-29. For wallets that do not implement a standardized
+transport method, additional packages are available.
+
+| Package                                        | Supported signers |
+|------------------------------------------------|-------------------|
+| `@slide-computer/signer-web`                   | NFID, Oisy, Slide |
+| `@slide-computer/signer-transport-plug`        | Plug              |
+| `@slide-computer/signer-transport-stoic`       | Stoic             |
+| `@slide-computer/signer-transport-auth-client` | Internet Identity |

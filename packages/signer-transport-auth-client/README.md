@@ -21,7 +21,7 @@ import { AuthClientTransport } from "@slide-computer/signer-transport-auth-clien
 To create an AuthClient transport, run
 
 ```js
-const transport = await StoicTransport.create();
+const transport = await AuthClientTransport.create();
 ```
 
 Either use with `@slide-computer/signer`

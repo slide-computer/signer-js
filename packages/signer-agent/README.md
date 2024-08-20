@@ -22,7 +22,7 @@ To get started with the signerAgent, run
 
 ```js
 const accounts = await signer.accounts();
-const agent = new SignerAgent({
+const agent = await SignerAgent.create({
   signer,
   account: accounts[0].owner
 });

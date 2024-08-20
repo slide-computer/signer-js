@@ -15,10 +15,10 @@ import {
   SubmitRequestType,
   type SubmitResponse,
 } from "@dfinity/agent";
-import type { JsonObject } from "@dfinity/candid";
-import { Principal } from "@dfinity/principal";
-import { type Signer, toBase64 } from "@slide-computer/signer";
-import { decodeCallRequest } from "./utils";
+import type {JsonObject} from "@dfinity/candid";
+import {Principal} from "@dfinity/principal";
+import {type Signer, toBase64} from "@slide-computer/signer";
+import {decodeCallRequest} from "./utils";
 
 export interface SignerAgentOptions {
   /**
@@ -44,18 +44,31 @@ export class SignerAgentError extends Error {
 }
 
 export class SignerAgent implements Agent {
+  static #isInternalConstructing: boolean = false;
   readonly #options: Required<SignerAgentOptions>;
   readonly #certificates = new Map<string, ArrayBuffer>();
 
-  constructor(options: SignerAgentOptions) {
-    this.#options = {
-      agent: new HttpAgent(),
-      ...options,
-    };
+  constructor(options: Required<SignerAgentOptions>) {
+    const throwError = !SignerAgent.#isInternalConstructing;
+    SignerAgent.#isInternalConstructing = false;
+    if (throwError) {
+      throw new SignerAgentError(
+        "SignerAgent is not constructable",
+      );
+    }
+    this.#options = options;
   }
 
   get rootKey() {
     return this.#options.agent.rootKey;
+  }
+
+  async create(options: SignerAgentOptions) {
+    SignerAgent.#isInternalConstructing = true;
+    return new SignerAgent({
+      ...options,
+      agent: options.agent ?? await HttpAgent.create(),
+    });
   }
 
   async call(
@@ -85,7 +98,7 @@ export class SignerAgent implements Agent {
       options.methodName === requestBody.method_name &&
       compare(options.arg, requestBody.arg) === 0 &&
       this.#options.account.compareTo(Principal.from(requestBody.sender)) ===
-        "eq";
+      "eq";
     if (!contentMapMatchesRequest) {
       throw new SignerAgentError("Received invalid content map from signer");
     }
@@ -183,7 +196,8 @@ export class SignerAgent implements Agent {
   async createReadStateRequest(
     _options: ReadStateOptions,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> {}
+  ): Promise<any> {
+  }
 
   async readState(
     _canisterId: Principal | string,
@@ -206,7 +220,7 @@ export class SignerAgent implements Agent {
       throw new SignerAgentError("Certificate could not be found");
     }
     this.#certificates.delete(key);
-    return { certificate };
+    return {certificate};
   }
 
   async status(): Promise<JsonObject> {

@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-agent",
-  "version": "2.6.1",
+  "version": "3.0.0",
   "author": "Slide",
   "license": "MIT",
   "description": "Initiate transactions with signers on the Internet Computer",
@@ -40,11 +40,11 @@
     "build": "tsc -b && tsc -p tsconfig-cjs.json"
   },
   "peerDependencies": {
-    "@dfinity/agent": "^1.4.0",
-    "@dfinity/candid": "^1.4.0",
-    "@dfinity/identity": "^1.4.0",
-    "@dfinity/principal": "^1.4.0",
-    "@slide-computer/signer": "^2.6.1"
+    "@dfinity/agent": "^2.0.0",
+    "@dfinity/candid": "^2.0.0",
+    "@dfinity/identity": "^2.0.0",
+    "@dfinity/principal": "^2.0.0",
+    "@slide-computer/signer": "^3.0.0"
   },
   "devDependencies": {
     "esbuild": "^0.15.16",

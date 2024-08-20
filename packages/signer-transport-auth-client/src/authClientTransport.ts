@@ -39,12 +39,13 @@ export class AuthClientTransport implements Transport {
   readonly #authClient: AuthClient;
 
   private constructor(authClient: AuthClient, connection: Connection) {
-    if (!AuthClientTransport.#isInternalConstructing) {
+    const throwError = !AuthClientTransport.#isInternalConstructing;
+    AuthClientTransport.#isInternalConstructing = false;
+    if (throwError) {
       throw new AuthClientTransportError(
         "AuthClientTransport is not constructable",
       );
     }
-    AuthClientTransport.#isInternalConstructing = false;
     this.#authClient = authClient;
     this.#connection = connection;
   }

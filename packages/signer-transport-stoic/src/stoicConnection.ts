@@ -78,7 +78,9 @@ export class StoicConnection implements Connection {
     delegationChain?: DelegationChain,
     accounts?: number,
   ) {
-    if (!StoicConnection.#isInternalConstructing) {
+    const throwError = !StoicConnection.#isInternalConstructing;
+    StoicConnection.#isInternalConstructing = false;
+    if (throwError) {
       throw new StoicTransportError("StoicTransport is not constructable");
     }
     this.#options = options;

@@ -1,14 +1,7 @@
-import {
-  type Channel,
-  type Connection,
-  type Transport,
-} from "@slide-computer/signer";
-import { StoicChannel } from "./stoicChannel";
-import {
-  StoicConnection,
-  type StoicConnectionOptions,
-} from "./stoicConnection";
-import type { HttpAgent } from "@dfinity/agent";
+import {type Channel, type Connection, type Transport,} from "@slide-computer/signer";
+import {StoicChannel} from "./stoicChannel";
+import {StoicConnection, type StoicConnectionOptions,} from "./stoicConnection";
+import type {HttpAgent} from "@dfinity/agent";
 
 export class StoicTransportError extends Error {
   constructor(message: string) {
@@ -32,10 +25,11 @@ export class StoicTransport implements Transport {
   readonly #agent?: HttpAgent;
 
   private constructor(connection: StoicConnection, agent?: HttpAgent) {
-    if (!StoicTransport.#isInternalConstructing) {
+    const throwError = !StoicTransport.#isInternalConstructing;
+    StoicTransport.#isInternalConstructing = false;
+    if (throwError) {
       throw new StoicTransportError("StoicTransport is not constructable");
     }
-    StoicTransport.#isInternalConstructing = false;
     this.#connection = connection;
     this.#agent = agent;
   }

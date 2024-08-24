@@ -1,15 +1,8 @@
-import { Principal } from "@dfinity/principal";
-import { Delegation, DelegationChain } from "@dfinity/identity";
-import { type Signature } from "@dfinity/agent";
-import type { JsonValue } from "@dfinity/candid";
-import type {
-  Channel,
-  JsonError,
-  JsonRequest,
-  JsonResponse,
-  JsonResponseResult,
-  Transport,
-} from "./transport";
+import {Principal} from "@dfinity/principal";
+import {Delegation, DelegationChain} from "@dfinity/identity";
+import {type Signature} from "@dfinity/agent";
+import type {JsonValue} from "@dfinity/candid";
+import type {Channel, JsonError, JsonRequest, JsonResponse, JsonResponseResult, Transport,} from "./transport";
 import type {
   PermissionScope,
   PermissionsRequest,
@@ -21,23 +14,11 @@ import type {
   SupportedStandardsRequest,
   SupportedStandardsResponse,
 } from "./icrc25";
-import type {
-  AccountsPermissionScope,
-  AccountsRequest,
-  AccountsResponse,
-} from "./icrc27";
-import type {
-  DelegationPermissionScope,
-  DelegationRequest,
-  DelegationResponse,
-} from "./icrc34";
-import type {
-  CallCanisterPermissionScope,
-  CallCanisterRequest,
-  CallCanisterResponse,
-} from "./icrc49";
-import { NETWORK_ERROR } from "./errors";
-import { fromBase64, toBase64 } from "./utils";
+import type {AccountsPermissionScope, AccountsRequest, AccountsResponse,} from "./icrc27";
+import type {DelegationPermissionScope, DelegationRequest, DelegationResponse,} from "./icrc34";
+import type {CallCanisterPermissionScope, CallCanisterRequest, CallCanisterResponse,} from "./icrc49";
+import {NETWORK_ERROR} from "./errors";
+import {fromBase64, toBase64} from "./utils";
 
 export class SignerError extends Error {
   public code: number;
@@ -84,10 +65,14 @@ export type SignerOptions = {
    * @default globalThis.crypto
    */
   crypto?: Pick<Crypto, "randomUUID">;
+  /**
+   * Origin to use to derive identity
+   */
+  derivationOrigin?: string;
 };
 
 export class Signer {
-  readonly #options: Required<SignerOptions>;
+  readonly #options: Required<Omit<SignerOptions, "derivationOrigin">> & Pick<SignerOptions, "derivationOrigin">;
   #channel?: Channel;
   #establishingChannel?: Promise<void>;
   #scheduledChannelClosure?: ReturnType<typeof setTimeout>;
@@ -118,7 +103,9 @@ export class Signer {
     // Establish a new transport channel
     const channel = this.#options.transport.establishChannel();
     // Indicate that transport channel is being established
-    this.#establishingChannel = channel.then(() => {}).catch(() => {});
+    this.#establishingChannel = channel.then(() => {
+    }).catch(() => {
+    });
     // Clear previous transport channel
     this.#channel = undefined;
     // Assign transport channel once established
@@ -133,6 +120,13 @@ export class Signer {
 
   async closeChannel(): Promise<void> {
     await this.#channel?.close();
+  }
+
+  async transformRequest<T extends JsonRequest>(request: T): Promise<T> {
+    if (this.#options.derivationOrigin) {
+      return {...request, params: {...request.params, icrc95DerivationOrigin: this.#options.derivationOrigin}};
+    }
+    return request;
   }
 
   async sendRequest<T extends JsonRequest, S extends JsonResponse>(
@@ -189,9 +183,10 @@ export class Signer {
         );
       });
 
+
       // Send outgoing request over transport channel
       try {
-        await channel.send(request);
+        await channel.send(await this.transformRequest(request));
       } catch (error) {
         responseListener();
         closeListener();
@@ -222,7 +217,7 @@ export class Signer {
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_request_permissions",
-      params: { scopes },
+      params: {scopes},
     });
     return response.scopes;
   }
@@ -249,7 +244,7 @@ export class Signer {
       jsonrpc: "2.0",
       method: "icrc27_accounts",
     });
-    return response.accounts.map(({ owner, subaccount }) => ({
+    return response.accounts.map(({owner, subaccount}) => ({
       owner: Principal.fromText(owner),
       subaccount: subaccount === undefined ? undefined : fromBase64(subaccount),
     }));
@@ -313,6 +308,6 @@ export class Signer {
     });
     const contentMap = fromBase64(response.contentMap);
     const certificate = fromBase64(response.certificate);
-    return { contentMap, certificate };
+    return {contentMap, certificate};
   }
 }

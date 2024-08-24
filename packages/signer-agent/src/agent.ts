@@ -63,11 +63,19 @@ export class SignerAgent implements Agent {
     return this.#options.agent.rootKey;
   }
 
-  async create(options: SignerAgentOptions) {
+  static async create(options: SignerAgentOptions) {
     SignerAgent.#isInternalConstructing = true;
     return new SignerAgent({
       ...options,
       agent: options.agent ?? await HttpAgent.create(),
+    });
+  }
+
+  static createSync(options: SignerAgentOptions) {
+    SignerAgent.#isInternalConstructing = true;
+    return new SignerAgent({
+      ...options,
+      agent: options.agent ?? HttpAgent.createSync(),
     });
   }
 

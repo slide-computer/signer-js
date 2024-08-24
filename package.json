@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "description": "Initiate transactions and authenticate with signers on the Internet Computer",
   "workspaces": {

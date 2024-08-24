@@ -10,6 +10,8 @@ export const CANISTER_SIGNATURE_OID = Uint8Array.from([
   ...[0x2b, 0x06, 0x01, 0x04, 0x01, 0x83, 0xb8, 0x43, 0x01, 0x02], // OID DFINITY
 ]);
 
+
+// TODO: validate challenge
 export const isCanisterSignatureValid = async ({
   publicKey,
   signature,

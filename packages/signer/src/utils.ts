@@ -20,3 +20,5 @@ export const toBase64 = (bytes: ArrayBuffer): string => {
   }
   throw Error("Could not encode base64 string");
 };
+
+export type RequiredKeys<T, P extends keyof T> = Required<Pick<T, P>> & Omit<T, P>

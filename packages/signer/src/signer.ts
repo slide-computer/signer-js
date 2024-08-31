@@ -2,7 +2,7 @@ import {Principal} from "@dfinity/principal";
 import {Delegation, DelegationChain} from "@dfinity/identity";
 import {type Signature} from "@dfinity/agent";
 import type {JsonValue} from "@dfinity/candid";
-import type {Channel, JsonError, JsonRequest, JsonResponse, JsonResponseResult, Transport,} from "./transport";
+import type {Channel, JsonError, JsonRequest, JsonResponse, Transport,} from "./transport";
 import type {
   PermissionScope,
   PermissionsRequest,
@@ -38,6 +38,19 @@ const wrapTransportError = (error: unknown) =>
     code: NETWORK_ERROR,
     message: error instanceof Error ? error.message : "Network error",
   });
+
+const unwrapResponse = <T extends JsonValue>(response: JsonResponse<T>): T => {
+  if ("error" in response) {
+    throw new SignerError(response.error);
+  }
+  if ("result" in response) {
+    return response.result;
+  }
+  throw new SignerError({
+    code: NETWORK_ERROR,
+    message: "Invalid response",
+  })
+}
 
 export type SignerPermissionScope =
   | PermissionScope
@@ -131,8 +144,8 @@ export class Signer {
 
   async sendRequest<T extends JsonRequest, S extends JsonResponse>(
     request: T,
-  ): Promise<JsonResponseResult<S>> {
-    return new Promise<JsonResponseResult<S>>(async (resolve, reject) => {
+  ): Promise<S> {
+    return new Promise<S>(async (resolve, reject) => {
       // Establish new or re-use existing transport channel
       const channel = await this.openChannel();
 
@@ -149,13 +162,8 @@ export class Signer {
           responseListener();
           closeListener();
 
-          // Reject or resolve based on response value
-          if ("error" in response) {
-            reject(new SignerError(response.error));
-          }
-          if ("result" in response) {
-            resolve(response.result as JsonResponseResult<S>);
-          }
+          // Return response
+          resolve(response as S);
 
           // Close transport channel after a certain timeout
           if (this.#options.autoCloseTransportChannel) {
@@ -203,8 +211,9 @@ export class Signer {
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_supported_standards",
-    });
-    return response.supportedStandards;
+    })
+    const result = unwrapResponse(response);
+    return result.supportedStandards;
   }
 
   async requestPermissions(
@@ -219,7 +228,8 @@ export class Signer {
       method: "icrc25_request_permissions",
       params: {scopes},
     });
-    return response.scopes;
+    const result = unwrapResponse(response);
+    return result.scopes;
   }
 
   async permissions(): Promise<
@@ -233,7 +243,8 @@ export class Signer {
       jsonrpc: "2.0",
       method: "icrc25_permissions",
     });
-    return response.scopes;
+    const result = unwrapResponse(response);
+    return result.scopes;
   }
 
   async accounts(): Promise<
@@ -244,7 +255,8 @@ export class Signer {
       jsonrpc: "2.0",
       method: "icrc27_accounts",
     });
-    return response.accounts.map(({owner, subaccount}) => ({
+    const result = unwrapResponse(response);
+    return result.accounts.map(({owner, subaccount}) => ({
       owner: Principal.fromText(owner),
       subaccount: subaccount === undefined ? undefined : fromBase64(subaccount),
     }));
@@ -271,8 +283,9 @@ export class Signer {
             : String(params.maxTimeToLive),
       },
     });
+    const result = unwrapResponse(response);
     return DelegationChain.fromDelegations(
-      response.signerDelegation.map((delegation) => ({
+      result.signerDelegation.map((delegation) => ({
         delegation: new Delegation(
           fromBase64(delegation.delegation.pubkey),
           BigInt(delegation.delegation.expiration),
@@ -282,7 +295,7 @@ export class Signer {
         ),
         signature: fromBase64(delegation.signature) as Signature,
       })),
-      fromBase64(response.publicKey),
+      fromBase64(result.publicKey),
     );
   }
 
@@ -306,8 +319,9 @@ export class Signer {
         arg: toBase64(params.arg),
       },
     });
-    const contentMap = fromBase64(response.contentMap);
-    const certificate = fromBase64(response.certificate);
+    const result = unwrapResponse(response);
+    const contentMap = fromBase64(result.contentMap);
+    const certificate = fromBase64(result.certificate);
     return {contentMap, certificate};
   }
 }

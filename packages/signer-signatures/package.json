@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-signatures",
-  "version": "3.2.0",
+  "version": "3.4.0",
   "author": "Slide",
   "license": "MIT",
   "description": "Verify signatures from signers on the Internet Computer",

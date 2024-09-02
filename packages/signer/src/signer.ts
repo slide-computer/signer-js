@@ -58,7 +58,7 @@ export type SignerPermissionScope =
   | DelegationPermissionScope
   | CallCanisterPermissionScope;
 
-export type SignerOptions = {
+export interface SignerOptions {
   /**
    * The transport used to send and receive messages
    */
@@ -82,7 +82,7 @@ export type SignerOptions = {
    * Origin to use to derive identity
    */
   derivationOrigin?: string;
-};
+}
 
 export class Signer {
   readonly #options: Required<Omit<SignerOptions, "derivationOrigin">> & Pick<SignerOptions, "derivationOrigin">;
@@ -116,9 +116,7 @@ export class Signer {
     // Establish a new transport channel
     const channel = this.#options.transport.establishChannel();
     // Indicate that transport channel is being established
-    this.#establishingChannel = channel.then(() => {
-    }).catch(() => {
-    });
+    this.#establishingChannel = channel.then(() => void 0).catch(() => void 0);
     // Clear previous transport channel
     this.#channel = undefined;
     // Assign transport channel once established
@@ -145,10 +143,10 @@ export class Signer {
   async sendRequest<T extends JsonRequest, S extends JsonResponse>(
     request: T,
   ): Promise<S> {
-    return new Promise<S>(async (resolve, reject) => {
-      // Establish new or re-use existing transport channel
-      const channel = await this.openChannel();
+    // Establish new or re-use existing transport channel
+    const channel = await this.openChannel();
 
+    return new Promise<S>(async (resolve, reject) => {
       // Listen on transport channel for incoming response
       const responseListener = channel.addEventListener(
         "response",

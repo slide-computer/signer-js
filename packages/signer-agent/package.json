@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-agent",
-  "version": "3.2.0",
+  "version": "3.4.0",
   "author": "Slide",
   "license": "MIT",
   "description": "Initiate transactions with signers on the Internet Computer",
@@ -44,7 +44,7 @@
     "@dfinity/candid": "^2.0.0",
     "@dfinity/identity": "^2.0.0",
     "@dfinity/principal": "^2.0.0",
-    "@slide-computer/signer": "^3.2.0"
+    "@slide-computer/signer": "^3.4.0"
   },
   "devDependencies": {
     "esbuild": "^0.15.16",

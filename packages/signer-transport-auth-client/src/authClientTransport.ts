@@ -54,7 +54,7 @@ export class AuthClientTransport implements Transport {
     return this.#connection;
   }
 
-  async create(
+  static async create(
     options: AuthClientTransportOptions,
   ): Promise<AuthClientTransport> {
     const authClient = await AuthClient.create(options.authClientCreateOptions);

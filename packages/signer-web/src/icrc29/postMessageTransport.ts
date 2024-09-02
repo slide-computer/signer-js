@@ -65,13 +65,13 @@ export class PostMessageTransport implements Transport {
   }
 
   async establishChannel(): Promise<Channel> {
+    // Signer window
+    const signerWindow = this.#options.openWindow();
+
+    // Status message id
+    const id = this.#options.crypto.randomUUID();
+
     return new Promise<Channel>((resolve, reject) => {
-      // Signer window
-      const signerWindow = this.#options.openWindow();
-
-      // Status message id
-      const id = this.#options.crypto.randomUUID();
-
       // Listen for "status: ready" message
       const listener = (event: MessageEvent) => {
         if (

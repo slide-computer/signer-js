@@ -26,7 +26,10 @@ export class LocalStorage implements SignerStorage {
     return this._getLocalStorage().getItem(this.prefix + key) ?? undefined;
   }
 
-  public async set(key: string, value: string) {
+  public async set(key: string, value: StoredKey) {
+    if (typeof value !== "string") {
+      throw Error("Use IdbStorage to store a `ECDSAKeyIdentity`.");
+    }
     this._getLocalStorage().setItem(this.prefix + key, value);
   }
 
@@ -75,10 +78,10 @@ export class IdbStorage implements SignerStorage {
   }
 
   public async get(key: string) {
-    return get<string>(key, this.store);
+    return get<StoredKey>(key, this.store);
   }
 
-  public async set(key: string, value: string) {
+  public async set(key: string, value: StoredKey) {
     return set(key, value, this.store);
   }
 

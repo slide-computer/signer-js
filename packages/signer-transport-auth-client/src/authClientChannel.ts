@@ -2,6 +2,8 @@ import type { AuthClient } from "@dfinity/auth-client";
 import {
   type Channel,
   type Connection,
+  type DelegationRequest,
+  fromBase64,
   INVALID_REQUEST_ERROR,
   isJsonRpcRequest,
   type JsonRequest,
@@ -11,7 +13,8 @@ import {
 } from "@slide-computer/signer";
 import { AuthClientTransportError } from "./authClientTransport";
 import { scopes, supportedStandards } from "./constants";
-import type { DelegationIdentity } from "@dfinity/identity";
+import { DelegationChain, type DelegationIdentity } from "@dfinity/identity";
+import { Principal } from "@dfinity/principal";
 
 export interface AuthClientChannelOptions {
   /**
@@ -79,6 +82,7 @@ export class AuthClientChannel implements Channel {
 
   async close(): Promise<void> {
     this.#closed = true;
+    this.#closeListeners.forEach((listener) => listener());
   }
 
   async #createResponse(
@@ -109,9 +113,35 @@ export class AuthClientChannel implements Channel {
           result: { scopes },
         };
       case "icrc34_delegation":
+        const delegationRequest = request as DelegationRequest;
+        if (!delegationRequest.params) {
+          throw new AuthClientTransportError(
+            "Required params missing in request",
+          );
+        }
         const identity =
           this.#options.authClient.getIdentity() as DelegationIdentity;
-        const delegation = identity.getDelegation();
+        const publicKey = fromBase64(delegationRequest.params.publicKey);
+        const expiration = delegationRequest.params.maxTimeToLive
+          ? new Date(
+              Date.now() +
+                Number(
+                  BigInt(delegationRequest.params.maxTimeToLive) /
+                    BigInt(1_000_000),
+                ),
+            )
+          : undefined;
+        const delegation = await DelegationChain.create(
+          identity,
+          { toDer: () => publicKey },
+          expiration,
+          {
+            previous: identity.getDelegation(),
+            targets: delegationRequest.params.targets?.map((target) =>
+              Principal.fromText(target),
+            ),
+          },
+        );
         return {
           id,
           jsonrpc: "2.0",

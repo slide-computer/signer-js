@@ -1,18 +1,25 @@
-import {type Channel, type JsonRequest, type JsonResponse,} from "@slide-computer/signer";
-import {PlugTransportError} from "./plugTransport";
+import {
+  type Channel,
+  type JsonRequest,
+  type JsonResponse,
+} from "@slide-computer/signer";
+import { PlugTransportError } from "./plugTransport";
 
 export class PlugChannel implements Channel {
+  readonly #closeListeners = new Set<() => void>();
   readonly #responseListeners = new Set<(response: JsonResponse) => void>();
 
   get closed(): boolean {
-    return !('ic' in window)
-      || typeof window.ic !== 'object'
-      || !window.ic
-      || !("plug" in window.ic)
-      || typeof window.ic.plug !== 'object'
-      || !window.ic.plug
-      || !('request' in window.ic.plug)
-      || typeof window.ic.plug.request !== 'function'
+    return (
+      !("ic" in window) ||
+      typeof window.ic !== "object" ||
+      !window.ic ||
+      !("plug" in window.ic) ||
+      typeof window.ic.plug !== "object" ||
+      !window.ic.plug ||
+      !("request" in window.ic.plug) ||
+      typeof window.ic.plug.request !== "function"
+    );
   }
 
   addEventListener(
@@ -22,7 +29,9 @@ export class PlugChannel implements Channel {
   ): () => void {
     switch (event) {
       case "close":
+        this.#closeListeners.add(listener);
         return () => {
+          this.#closeListeners.delete(listener);
         };
       case "response":
         this.#responseListeners.add(listener);
@@ -33,7 +42,9 @@ export class PlugChannel implements Channel {
   }
 
   async send(request: JsonRequest): Promise<void> {
-    if (this.closed) throw new PlugTransportError("Plug wallet cannot be found");
+    if (this.closed) {
+      throw new PlugTransportError("Plug wallet cannot be found");
+    }
 
     // @ts-ignore Call plug window method
     const response = await window.ic.plug.request(request);
@@ -45,6 +56,5 @@ export class PlugChannel implements Channel {
     this.#responseListeners.forEach((listener) => listener(response));
   }
 
-  async close(): Promise<void> {
-  }
+  async close(): Promise<void> {}
 }

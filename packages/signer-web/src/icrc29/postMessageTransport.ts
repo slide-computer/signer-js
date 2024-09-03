@@ -4,6 +4,7 @@ import {
   type Transport,
 } from "@slide-computer/signer";
 import { PostMessageChannel } from "./postMessageChannel";
+import { validateURL } from "../utils";
 
 export class PostMessageTransportError extends Error {
   constructor(message: string) {
@@ -14,9 +15,14 @@ export class PostMessageTransportError extends Error {
 
 export interface PostMessageTransportOptions {
   /**
-   * Open window to send and receive messages from
+   * Signer RPC url to send and receive messages from
    */
-  openWindow: () => Window;
+  url: string;
+  /**
+   * Signer window feature config string
+   * @example "toolbar=0,location=0,menubar=0,width=500,height=500,left=100,top=100"
+   */
+  windowOpenerFeatures?: string;
   /**
    * Relying party window, used to listen for incoming message events
    * @default globalThis.window
@@ -53,7 +59,12 @@ export class PostMessageTransport implements Transport {
   #options: Required<PostMessageTransportOptions>;
 
   constructor(options: PostMessageTransportOptions) {
+    if (!validateURL(options.url)) {
+      throw new PostMessageTransportError("Invalid signer RPC url");
+    }
+
     this.#options = {
+      windowOpenerFeatures: options.windowOpenerFeatures ?? "",
       window: globalThis.window,
       crypto: globalThis.crypto,
       statusPollingRate: 200,
@@ -66,7 +77,16 @@ export class PostMessageTransport implements Transport {
 
   async establishChannel(): Promise<Channel> {
     // Signer window
-    const signerWindow = this.#options.openWindow();
+    const signerWindow = globalThis.open(
+      this.#options.url,
+      "signerWindow",
+      this.#options.windowOpenerFeatures,
+    );
+    if (!signerWindow) {
+      throw new PostMessageTransportError(
+        "Communication channel could not be established",
+      );
+    }
 
     // Status message id
     const id = this.#options.crypto.randomUUID();

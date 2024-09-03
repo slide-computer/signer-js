@@ -1,8 +1,14 @@
-import {Principal} from "@dfinity/principal";
-import {Delegation, DelegationChain} from "@dfinity/identity";
-import {type Signature} from "@dfinity/agent";
-import type {JsonValue} from "@dfinity/candid";
-import type {Channel, JsonError, JsonRequest, JsonResponse, Transport,} from "./transport";
+import { Principal } from "@dfinity/principal";
+import { Delegation, DelegationChain } from "@dfinity/identity";
+import { type Signature } from "@dfinity/agent";
+import type { JsonValue } from "@dfinity/candid";
+import type {
+  Channel,
+  JsonError,
+  JsonRequest,
+  JsonResponse,
+  Transport,
+} from "./transport";
 import type {
   PermissionScope,
   PermissionsRequest,
@@ -14,11 +20,23 @@ import type {
   SupportedStandardsRequest,
   SupportedStandardsResponse,
 } from "./icrc25";
-import type {AccountsPermissionScope, AccountsRequest, AccountsResponse,} from "./icrc27";
-import type {DelegationPermissionScope, DelegationRequest, DelegationResponse,} from "./icrc34";
-import type {CallCanisterPermissionScope, CallCanisterRequest, CallCanisterResponse,} from "./icrc49";
-import {NETWORK_ERROR} from "./errors";
-import {fromBase64, toBase64} from "./utils";
+import type {
+  AccountsPermissionScope,
+  AccountsRequest,
+  AccountsResponse,
+} from "./icrc27";
+import type {
+  DelegationPermissionScope,
+  DelegationRequest,
+  DelegationResponse,
+} from "./icrc34";
+import type {
+  CallCanisterPermissionScope,
+  CallCanisterRequest,
+  CallCanisterResponse,
+} from "./icrc49";
+import { NETWORK_ERROR } from "./errors";
+import { fromBase64, toBase64 } from "./utils";
 
 export class SignerError extends Error {
   public code: number;
@@ -49,8 +67,8 @@ const unwrapResponse = <T extends JsonValue>(response: JsonResponse<T>): T => {
   throw new SignerError({
     code: NETWORK_ERROR,
     message: "Invalid response",
-  })
-}
+  });
+};
 
 export type SignerPermissionScope =
   | PermissionScope
@@ -85,7 +103,8 @@ export interface SignerOptions {
 }
 
 export class Signer {
-  readonly #options: Required<Omit<SignerOptions, "derivationOrigin">> & Pick<SignerOptions, "derivationOrigin">;
+  readonly #options: Required<Omit<SignerOptions, "derivationOrigin">> &
+    Pick<SignerOptions, "derivationOrigin">;
   #channel?: Channel;
   #establishingChannel?: Promise<void>;
   #scheduledChannelClosure?: ReturnType<typeof setTimeout>;
@@ -116,7 +135,7 @@ export class Signer {
     // Establish a new transport channel
     const channel = this.#options.transport.establishChannel();
     // Indicate that transport channel is being established
-    this.#establishingChannel = channel.then(() => void 0).catch(() => void 0);
+    this.#establishingChannel = channel.then(() => {}).catch(() => {});
     // Clear previous transport channel
     this.#channel = undefined;
     // Assign transport channel once established
@@ -135,7 +154,13 @@ export class Signer {
 
   async transformRequest<T extends JsonRequest>(request: T): Promise<T> {
     if (this.#options.derivationOrigin) {
-      return {...request, params: {...request.params, icrc95DerivationOrigin: this.#options.derivationOrigin}};
+      return {
+        ...request,
+        params: {
+          ...request.params,
+          icrc95DerivationOrigin: this.#options.derivationOrigin,
+        },
+      };
     }
     return request;
   }
@@ -189,7 +214,6 @@ export class Signer {
         );
       });
 
-
       // Send outgoing request over transport channel
       try {
         await channel.send(await this.transformRequest(request));
@@ -209,7 +233,7 @@ export class Signer {
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_supported_standards",
-    })
+    });
     const result = unwrapResponse(response);
     return result.supportedStandards;
   }
@@ -224,7 +248,7 @@ export class Signer {
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc25_request_permissions",
-      params: {scopes},
+      params: { scopes },
     });
     const result = unwrapResponse(response);
     return result.scopes;
@@ -254,7 +278,7 @@ export class Signer {
       method: "icrc27_accounts",
     });
     const result = unwrapResponse(response);
-    return result.accounts.map(({owner, subaccount}) => ({
+    return result.accounts.map(({ owner, subaccount }) => ({
       owner: Principal.fromText(owner),
       subaccount: subaccount === undefined ? undefined : fromBase64(subaccount),
     }));
@@ -320,6 +344,6 @@ export class Signer {
     const result = unwrapResponse(response);
     const contentMap = fromBase64(result.contentMap);
     const certificate = fromBase64(result.certificate);
-    return {contentMap, certificate};
+    return { contentMap, certificate };
   }
 }

@@ -10,12 +10,12 @@ import {
   NOT_SUPPORTED_ERROR,
   toBase64,
 } from "@slide-computer/signer";
-import {StoicTransportError} from "./stoicTransport";
-import {scopes, supportedStandards} from "./constants";
-import {DelegationChain, DelegationIdentity} from "@dfinity/identity";
-import type {StoicConnection} from "./stoicConnection";
-import {Cbor, HttpAgent, polling, type SignIdentity} from "@dfinity/agent";
-import {Principal} from "@dfinity/principal";
+import { StoicTransportError } from "./stoicTransport";
+import { scopes, supportedStandards } from "./constants";
+import { DelegationChain, DelegationIdentity } from "@dfinity/identity";
+import type { StoicConnection } from "./stoicConnection";
+import { Cbor, HttpAgent, polling, type SignIdentity } from "@dfinity/agent";
+import { Principal } from "@dfinity/principal";
 
 export class StoicChannel implements Channel {
   readonly #connection: StoicConnection;
@@ -69,12 +69,13 @@ export class StoicChannel implements Channel {
     }
 
     // Create response and call listeners
-    const response = await this.#createResponse({id, ...request});
+    const response = await this.#createResponse({ id, ...request });
     this.#responseListeners.forEach((listener) => listener(response));
   }
 
   async close(): Promise<void> {
     this.#closed = true;
+    this.#closeListeners.forEach((listener) => listener());
   }
 
   async #createResponse(
@@ -86,7 +87,7 @@ export class StoicChannel implements Channel {
       return {
         id,
         jsonrpc: "2.0",
-        error: {code: INVALID_REQUEST_ERROR, message: "Invalid request"},
+        error: { code: INVALID_REQUEST_ERROR, message: "Invalid request" },
       };
     }
 
@@ -95,14 +96,14 @@ export class StoicChannel implements Channel {
         return {
           id,
           jsonrpc: "2.0",
-          result: {supportedStandards},
+          result: { supportedStandards },
         };
       case "icrc25_permissions":
       case "icrc25_request_permissions":
         return {
           id,
           jsonrpc: "2.0",
-          result: {scopes},
+          result: { scopes },
         };
       case "icrc27_accounts":
         const owner = Principal.selfAuthenticating(
@@ -130,16 +131,16 @@ export class StoicChannel implements Channel {
         const delegationChain = this.#connection.delegationChain!;
         const expiration = new Date(
           Date.now() +
-          Number(
-            delegationRequest.params!.maxTimeToLive
-              ? BigInt(delegationRequest.params!.maxTimeToLive) /
-              BigInt(1_000_000)
-              : BigInt(8) * BigInt(3_600_000),
-          ),
+            Number(
+              delegationRequest.params!.maxTimeToLive
+                ? BigInt(delegationRequest.params!.maxTimeToLive) /
+                    BigInt(1_000_000)
+                : BigInt(8) * BigInt(3_600_000),
+            ),
         );
         const signedDelegationChain = await DelegationChain.create(
           identity,
-          {toDer: () => fromBase64(delegationRequest.params!.publicKey)},
+          { toDer: () => fromBase64(delegationRequest.params!.publicKey) },
           expiration,
           {
             previous: delegationChain,
@@ -154,16 +155,16 @@ export class StoicChannel implements Channel {
           result: {
             publicKey: toBase64(signedDelegationChain.publicKey),
             signerDelegation: signedDelegationChain.delegations.map(
-              ({delegation, signature}) => ({
+              ({ delegation, signature }) => ({
                 delegation: {
                   pubkey: toBase64(delegation.pubkey),
                   expiration: delegation.expiration.toString(),
                   ...(delegation.targets
                     ? {
-                      targets: delegation.targets.map((target) =>
-                        target.toText(),
-                      ),
-                    }
+                        targets: delegation.targets.map((target) =>
+                          target.toText(),
+                        ),
+                      }
                     : {}),
                 },
                 signature: toBase64(signature),
@@ -173,15 +174,24 @@ export class StoicChannel implements Channel {
         };
       case "icrc49_call_canister":
         const callCanisterRequest = request as CallCanisterRequest;
-        const {pollForResponse, defaultStrategy} = polling;
+        const { pollForResponse, defaultStrategy } = polling;
         const canisterId = Principal.fromText(
           callCanisterRequest.params!.canisterId,
         );
-        const agent = await HttpAgent.from(this.#agent ?? await HttpAgent.create());
-        agent.replaceIdentity(DelegationIdentity.fromDelegation(
+        const delegationIdentity = DelegationIdentity.fromDelegation(
           this.#connection.identity,
           this.#connection.delegationChain!,
-        ));
+        );
+        if (
+          callCanisterRequest.params?.sender !==
+          delegationIdentity.getPrincipal().toString()
+        ) {
+          throw new StoicTransportError("Sender does not match Stoic identity");
+        }
+        const agent = await HttpAgent.from(
+          this.#agent ?? (await HttpAgent.create()),
+        );
+        agent.replaceIdentity(delegationIdentity);
         let contentMap: ArrayBuffer;
         agent.addTransform("update", async (agentRequest) => {
           contentMap = Cbor.encode(agentRequest.body);
@@ -198,7 +208,7 @@ export class StoicChannel implements Channel {
           submitResponse.requestId,
           defaultStrategy(),
         );
-        const {certificate} = await agent.readState(canisterId, {
+        const { certificate } = await agent.readState(canisterId, {
           paths: [
             [
               new TextEncoder().encode("request_status"),
@@ -218,7 +228,7 @@ export class StoicChannel implements Channel {
         return {
           id,
           jsonrpc: "2.0",
-          error: {code: NOT_SUPPORTED_ERROR, message: "Not supported"},
+          error: { code: NOT_SUPPORTED_ERROR, message: "Not supported" },
         };
     }
   }

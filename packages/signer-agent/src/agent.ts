@@ -24,11 +24,11 @@ import { decodeCallRequest } from "./utils";
 const MAX_AGE_IN_MINUTES = 5;
 const INVALID_RESPONSE_MESSAGE = "Received invalid response from signer";
 
-export interface SignerAgentOptions {
+export interface SignerAgentOptions<T extends Pick<Signer, "callCanister">> {
   /**
    * Signer instance that should be used to send ICRC-25 JSON-RPC messages
    */
-  signer: Pick<Signer, "callCanister">;
+  signer: T;
   /**
    * Principal of account that should be used to make calls
    */
@@ -47,12 +47,14 @@ export class SignerAgentError extends Error {
   }
 }
 
-export class SignerAgent implements Agent {
+export class SignerAgent<T extends Pick<Signer, "callCanister">>
+  implements Agent
+{
   static #isInternalConstructing: boolean = false;
-  readonly #options: Required<SignerAgentOptions>;
+  readonly #options: Required<SignerAgentOptions<T>>;
   readonly #certificates = new Map<string, ArrayBuffer>();
 
-  constructor(options: Required<SignerAgentOptions>) {
+  constructor(options: Required<SignerAgentOptions<T>>) {
     const throwError = !SignerAgent.#isInternalConstructing;
     SignerAgent.#isInternalConstructing = false;
     if (throwError) {
@@ -65,17 +67,25 @@ export class SignerAgent implements Agent {
     return this.#options.agent.rootKey;
   }
 
-  static async create(options: SignerAgentOptions) {
+  get signer(): T {
+    return this.#options.signer;
+  }
+
+  static async create<T extends Pick<Signer, "callCanister">>(
+    options: SignerAgentOptions<T>,
+  ) {
     SignerAgent.#isInternalConstructing = true;
-    return new SignerAgent({
+    return new SignerAgent<T>({
       ...options,
       agent: options.agent ?? (await HttpAgent.create()),
     });
   }
 
-  static createSync(options: SignerAgentOptions) {
+  static createSync<T extends Pick<Signer, "callCanister">>(
+    options: SignerAgentOptions<T>,
+  ) {
     SignerAgent.#isInternalConstructing = true;
-    return new SignerAgent({
+    return new SignerAgent<T>({
       ...options,
       agent: options.agent ?? HttpAgent.createSync(),
     });

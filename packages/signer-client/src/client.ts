@@ -50,7 +50,7 @@ export interface SignerClientOptions {
   /**
    * An identity to use as the base
    */
-  identity?: SignIdentity | PartialIdentity;
+  identity?: SignIdentity;
   /**
    * Optional, used to generate random bytes
    * @default uses browser/node Crypto by default
@@ -80,6 +80,7 @@ export class SignerClient {
   constructor(
     private options: SignerClientOptions,
     private storage: SignerStorage,
+    private baseIdentity: SignIdentity,
     private identity: Identity | PartialIdentity,
   ) {
     if (this.isAuthenticated() && !options?.idleOptions?.disableIdle) {
@@ -95,15 +96,25 @@ export class SignerClient {
   public static async create(
     options: SignerClientOptions,
   ): Promise<SignerClient> {
+    const crypto = options.crypto ?? globalThis.crypto;
     const storage = options.storage ?? new IdbStorage();
-    const baseIdentity =
+    let baseIdentity =
       options.identity ?? (await getIdentity(STORAGE_KEY, storage));
+    if (!baseIdentity) {
+      const createdBaseIdentity = await (options?.keyType === "Ed25519"
+        ? Ed25519KeyIdentity.generate(
+            crypto.getRandomValues(new Uint8Array(32)),
+          )
+        : ECDSAKeyIdentity.generate());
+      await setIdentity(STORAGE_KEY, createdBaseIdentity, storage);
+      baseIdentity = createdBaseIdentity;
+    }
     const delegationChain = await getDelegationChain(STORAGE_KEY, storage);
     const identity =
       baseIdentity && delegationChain && isDelegationValid(delegationChain)
         ? SignerClient.createIdentity(baseIdentity, delegationChain)
         : new AnonymousIdentity();
-    return new SignerClient(options, storage, identity);
+    return new SignerClient(options, storage, baseIdentity, identity);
   }
 
   private static createIdentity(
@@ -142,15 +153,14 @@ export class SignerClient {
      */
     onError?: ((error?: Error) => void) | ((error?: Error) => Promise<void>);
   }): Promise<void> {
-    const baseIdentity = await this.getBaseIdentity();
     try {
       const delegationChain = await this.options.signer.delegation({
-        publicKey: baseIdentity.getPublicKey().toDer(),
+        publicKey: this.baseIdentity.getPublicKey().toDer(),
         maxTimeToLive: options?.maxTimeToLive,
       });
       await setDelegationChain(STORAGE_KEY, delegationChain, this.storage);
       this.identity = SignerClient.createIdentity(
-        baseIdentity,
+        this.baseIdentity,
         delegationChain,
       );
       if (!this.options?.idleOptions?.disableIdle && !this.idleManager) {
@@ -178,27 +188,6 @@ export class SignerClient {
         window.location.href = options.returnTo;
       }
     }
-  }
-
-  private async getBaseIdentity() {
-    if (this.options.identity) {
-      return this.options.identity;
-    }
-    const baseIdentity = await getIdentity(STORAGE_KEY, this.storage);
-    if (baseIdentity) {
-      return baseIdentity;
-    }
-    return this.createBaseIdentity();
-  }
-
-  private async createBaseIdentity() {
-    const baseIdentity = await (this.options?.keyType === "Ed25519"
-      ? Ed25519KeyIdentity.generate(
-          this.crypto.getRandomValues(new Uint8Array(32)),
-        )
-      : ECDSAKeyIdentity.generate());
-    await setIdentity(STORAGE_KEY, baseIdentity, this.storage);
-    return baseIdentity;
   }
 
   private registerDefaultIdleCallback() {

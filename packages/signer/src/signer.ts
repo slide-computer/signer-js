@@ -76,11 +76,11 @@ export type SignerPermissionScope =
   | DelegationPermissionScope
   | CallCanisterPermissionScope;
 
-export interface SignerOptions {
+export interface SignerOptions<T extends Transport> {
   /**
    * The transport used to send and receive messages
    */
-  transport: Transport;
+  transport: T;
   /**
    * Automatically close transport channel after response has been received
    * @default true
@@ -102,20 +102,24 @@ export interface SignerOptions {
   derivationOrigin?: string;
 }
 
-export class Signer {
-  readonly #options: Required<Omit<SignerOptions, "derivationOrigin">> &
-    Pick<SignerOptions, "derivationOrigin">;
+export class Signer<T extends Transport = Transport> {
+  readonly #options: Required<Omit<SignerOptions<T>, "derivationOrigin">> &
+    Pick<SignerOptions<T>, "derivationOrigin">;
   #channel?: Channel;
   #establishingChannel?: Promise<void>;
   #scheduledChannelClosure?: ReturnType<typeof setTimeout>;
 
-  constructor(options: SignerOptions) {
+  constructor(options: SignerOptions<T>) {
     this.#options = {
       autoCloseTransportChannel: true,
       closeTransportChannelAfter: 200,
       crypto: globalThis.crypto,
       ...options,
     };
+  }
+
+  get transport(): T {
+    return this.#options.transport;
   }
 
   async openChannel(): Promise<Channel> {

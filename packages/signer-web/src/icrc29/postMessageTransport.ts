@@ -4,7 +4,7 @@ import {
   type Transport,
 } from "@slide-computer/signer";
 import { PostMessageChannel } from "./postMessageChannel";
-import { validateURL } from "../utils";
+import { urlIsSecureContext } from "../utils";
 
 export class PostMessageTransportError extends Error {
   constructor(message: string) {
@@ -59,7 +59,7 @@ export class PostMessageTransport implements Transport {
   #options: Required<PostMessageTransportOptions>;
 
   constructor(options: PostMessageTransportOptions) {
-    if (!validateURL(options.url)) {
+    if (!urlIsSecureContext(options.url)) {
       throw new PostMessageTransportError("Invalid signer RPC url");
     }
 

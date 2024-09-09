@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-transport-plug",
-  "version": "3.6.1",
+  "version": "3.6.2",
   "author": "Slide",
   "license": "MIT",
   "description": "JavaScript and TypeScript library to communicate with Plug Wallet on the Internet Computer",
@@ -43,8 +43,8 @@
     "@dfinity/identity": "^2.0.0",
     "@dfinity/agent": "^2.0.0",
     "@dfinity/principal": "^2.0.0",
-    "@slide-computer/signer": "^3.6.1",
-    "@slide-computer/signer-storage": "^3.6.1"
+    "@slide-computer/signer": "^3.6.2",
+    "@slide-computer/signer-storage": "^3.6.2"
   },
   "devDependencies": {
     "esbuild": "^0.15.16",

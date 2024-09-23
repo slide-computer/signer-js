@@ -165,7 +165,7 @@ export class SignerAgent<T extends Pick<Signer, "callCanister">>
       requestId,
       response: {
         ok: true,
-        status: 200,
+        status: 202,
         statusText: "Call has been sent over ICRC-25 JSON-RPC",
         body: null,
         headers: [],
@@ -225,7 +225,7 @@ export class SignerAgent<T extends Pick<Signer, "callCanister">>
       },
       httpDetails: {
         ok: true,
-        status: 200,
+        status: 202,
         statusText:
           "Certificate with reply has been received over ICRC-25 JSON-RPC",
         headers: [],

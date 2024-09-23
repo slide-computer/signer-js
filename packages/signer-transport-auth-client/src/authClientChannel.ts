@@ -14,7 +14,6 @@ import {
 import { AuthClientTransportError } from "./authClientTransport";
 import { scopes, supportedStandards } from "./constants";
 import { DelegationChain, type DelegationIdentity } from "@dfinity/identity";
-import { Principal } from "@dfinity/principal";
 
 export interface AuthClientChannelOptions {
   /**
@@ -113,6 +112,7 @@ export class AuthClientChannel implements Channel {
           result: { scopes },
         };
       case "icrc34_delegation":
+        // As per the ICRC-34 spec, II only returns unscoped Relying Party delegations (without targets).
         const delegationRequest = request as DelegationRequest;
         if (!delegationRequest.params) {
           throw new AuthClientTransportError(
@@ -137,9 +137,6 @@ export class AuthClientChannel implements Channel {
           expiration,
           {
             previous: identity.getDelegation(),
-            targets: delegationRequest.params.targets?.map((target) =>
-              Principal.fromText(target),
-            ),
           },
         );
         return {

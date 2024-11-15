@@ -74,7 +74,7 @@ export class PostMessageTransport implements Transport {
   async establishChannel(): Promise<PostMessageChannel> {
     return new Promise<PostMessageChannel>((resolve, reject) => {
       let channel: PostMessageChannel;
-      let heartbeatInterval: ReturnType<typeof setTimeout>;
+      let heartbeatInterval: ReturnType<typeof setInterval>;
       let disconnectTimeout: ReturnType<typeof setTimeout>;
 
       // Open signer window

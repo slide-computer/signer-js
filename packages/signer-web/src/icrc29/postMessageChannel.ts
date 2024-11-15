@@ -21,11 +21,6 @@ export interface PostMessageChannelOptions {
    */
   window?: Window;
   /**
-   * Window close monitoring interval in ms
-   * @default 500
-   */
-  windowCloseMonitoringInterval?: number;
-  /**
    * Manage focus between relying party and signer window
    * @default true
    */
@@ -33,27 +28,20 @@ export interface PostMessageChannelOptions {
 }
 
 export class PostMessageChannel implements Channel {
-  #closeListeners = new Set<() => void>();
-  #options: Required<PostMessageChannelOptions>;
+  readonly #closeListeners = new Set<() => void>();
+  readonly #options: Required<PostMessageChannelOptions>;
+  #closed = false;
 
   constructor(options: PostMessageChannelOptions) {
     this.#options = {
       window: globalThis.window,
-      windowCloseMonitoringInterval: 500,
       manageFocus: true,
       ...options,
     };
-
-    const interval = setInterval(() => {
-      if (this.#options.signerWindow.closed) {
-        this.#closeListeners.forEach((listener) => listener());
-        clearInterval(interval);
-      }
-    }, this.#options.windowCloseMonitoringInterval);
   }
 
   get closed() {
-    return this.#options.signerWindow.closed;
+    return this.#closed;
   }
 
   addEventListener(
@@ -86,7 +74,7 @@ export class PostMessageChannel implements Channel {
   }
 
   async send(request: JsonRequest): Promise<void> {
-    if (this.#options.signerWindow.closed) {
+    if (this.#closed) {
       throw new PostMessageTransportError("Communication channel is closed");
     }
 
@@ -98,10 +86,17 @@ export class PostMessageChannel implements Channel {
   }
 
   async close(): Promise<void> {
-    this.#options.signerWindow.close();
+    if (this.#closed) {
+      return;
+    }
 
+    this.#closed = true;
+
+    this.#options.signerWindow.close();
     if (this.#options.manageFocus) {
       this.#options.window.focus();
     }
+
+    this.#closeListeners.forEach((listener) => listener());
   }
 }

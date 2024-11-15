@@ -1,8 +1,4 @@
-import {
-  type Channel,
-  isJsonRpcResponse,
-  type Transport,
-} from "@slide-computer/signer";
+import { isJsonRpcResponse, type Transport } from "@slide-computer/signer";
 import { PostMessageChannel } from "./postMessageChannel";
 import { urlIsSecureContext } from "../utils";
 
@@ -29,25 +25,25 @@ export interface PostMessageTransportOptions {
    */
   window?: Window;
   /**
+   * Reasonable time in milliseconds in which the communication channel needs to be established
+   * @default 10000
+   */
+  establishTimeout?: number;
+  /**
+   * Time in milliseconds of not receiving heartbeat responses after which the communication channel is disconnected
+   * @default 2000
+   */
+  disconnectTimeout?: number;
+  /**
+   * Status polling rate in ms
+   * @default 300
+   */
+  statusPollingRate?: number;
+  /**
    * Get random uuid implementation for status messages
    * @default globalThis.crypto
    */
   crypto?: Pick<Crypto, "randomUUID">;
-  /**
-   * Status polling rate in ms
-   * @default 200
-   */
-  statusPollingRate?: number;
-  /**
-   * Status timeout in ms
-   * @default 5000
-   */
-  statusTimeout?: number;
-  /**
-   * Window close monitoring interval in ms
-   * @default 500
-   */
-  windowCloseMonitoringInterval?: number;
   /**
    * Manage focus between relying party and signer window
    * @default true
@@ -56,7 +52,7 @@ export interface PostMessageTransportOptions {
 }
 
 export class PostMessageTransport implements Transport {
-  #options: Required<PostMessageTransportOptions>;
+  readonly #options: Required<PostMessageTransportOptions>;
 
   constructor(options: PostMessageTransportOptions) {
     if (!urlIsSecureContext(options.url)) {
@@ -64,79 +60,89 @@ export class PostMessageTransport implements Transport {
     }
 
     this.#options = {
-      windowOpenerFeatures: options.windowOpenerFeatures ?? "",
+      windowOpenerFeatures: "",
       window: globalThis.window,
+      establishTimeout: 10000,
+      disconnectTimeout: 2000,
+      statusPollingRate: 300,
       crypto: globalThis.crypto,
-      statusPollingRate: 200,
-      statusTimeout: 5000,
-      windowCloseMonitoringInterval: 500,
       manageFocus: true,
       ...options,
     };
   }
 
-  async establishChannel(): Promise<Channel> {
-    // Signer window
-    const signerWindow = globalThis.open(
-      this.#options.url,
-      "signerWindow",
-      this.#options.windowOpenerFeatures,
-    );
-    if (!signerWindow) {
-      throw new PostMessageTransportError(
-        "Communication channel could not be established",
+  async establishChannel(): Promise<PostMessageChannel> {
+    return new Promise<PostMessageChannel>((resolve, reject) => {
+      let channel: PostMessageChannel;
+      let heartbeatInterval: ReturnType<typeof setTimeout>;
+      let disconnectTimeout: ReturnType<typeof setTimeout>;
+
+      // Open signer window
+      const signerWindow = this.#options.window.open(
+        this.#options.url,
+        "signerWindow",
+        this.#options.windowOpenerFeatures,
       );
-    }
+      if (!signerWindow) {
+        reject(
+          new PostMessageTransportError("Signer window could not be opened"),
+        );
+        return;
+      }
 
-    // Status message id
-    const id = this.#options.crypto.randomUUID();
-
-    return new Promise<Channel>((resolve, reject) => {
-      // Listen for "status: ready" message
-      const listener = (event: MessageEvent) => {
-        if (
-          event.source !== signerWindow ||
-          !isJsonRpcResponse(event.data) ||
-          event.data.id !== id ||
-          !("result" in event.data) ||
-          event.data.result !== "ready"
-        ) {
+      // Establishing the communication channel needs to happen within a reasonable time
+      const establishTimeout = setTimeout(() => {
+        if (channel) {
           return;
         }
-        clearInterval(interval);
-        clearTimeout(timeout);
-        this.#options.window.removeEventListener("message", listener);
-        resolve(
-          new PostMessageChannel({
-            signerWindow,
-            signerOrigin: event.origin,
-            window: this.#options.window,
-            windowCloseMonitoringInterval:
-              this.#options.windowCloseMonitoringInterval,
-            manageFocus: this.#options.manageFocus,
-          }),
+        clearInterval(heartbeatInterval);
+        reject(
+          new PostMessageTransportError(
+            "Communication channel could not be established within a reasonable time",
+          ),
         );
-      };
-      this.#options.window.addEventListener("message", listener);
+      }, this.#options.establishTimeout);
 
-      // Poll status
-      const interval = setInterval(() => {
+      heartbeatInterval = setInterval(() => {
+        const id = crypto.randomUUID();
+        const listener = async (event: MessageEvent) => {
+          if (
+            event.source !== signerWindow ||
+            !isJsonRpcResponse(event.data) ||
+            event.data.id !== id ||
+            !("result" in event.data) ||
+            event.data.result !== "ready"
+          ) {
+            return;
+          }
+          this.#options.window.removeEventListener("message", listener);
+
+          // Communication channel is established when first ready message is received
+          if (!channel) {
+            channel = new PostMessageChannel({
+              ...this.#options,
+              signerOrigin: event.origin,
+              signerWindow: signerWindow,
+            });
+            clearTimeout(establishTimeout);
+            resolve(channel);
+            return;
+          }
+
+          // Communication channel has disconnected if no ready message has been received for a while
+          clearTimeout(disconnectTimeout);
+          disconnectTimeout = setTimeout(() => {
+            clearInterval(heartbeatInterval);
+            channel.close();
+          }, this.#options.disconnectTimeout);
+        };
+
+        this.#options.window.addEventListener("message", listener);
         signerWindow.postMessage(
           { jsonrpc: "2.0", id, method: "icrc29_status" },
           "*",
         );
       }, this.#options.statusPollingRate);
-
-      // Throw error on timeout
-      const timeout = setTimeout(() => {
-        clearInterval(interval);
-        this.#options.window.removeEventListener("message", listener);
-        reject(
-          new PostMessageTransportError(
-            "Establish communication channel timeout",
-          ),
-        );
-      }, this.#options.statusTimeout);
     });
   }
 }

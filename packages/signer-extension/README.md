@@ -44,7 +44,7 @@ const listener = channel.registerListener((response) => {
 channel.send(JSON_RPC_REQUEST);
 ```
 
-To discover all available installed browser extension signers for a use to choose from, run
+To discover all available installed browser extension signers for a user to choose from, run
 
 ```js
 const providerDetails = await BrowserExtensionTransport.discover();

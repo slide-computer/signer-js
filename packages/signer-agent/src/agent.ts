@@ -50,6 +50,7 @@ export class SignerAgentError extends Error {
 export class SignerAgent<T extends Pick<Signer, "callCanister">>
   implements Agent
 {
+  // noinspection JSUnusedLocalSymbols
   static #isInternalConstructing: boolean = false;
   readonly #options: Required<SignerAgentOptions<T>>;
   readonly #certificates = new Map<string, ArrayBuffer>();
@@ -236,7 +237,15 @@ export class SignerAgent<T extends Pick<Signer, "callCanister">>
   async createReadStateRequest(
     _options: ReadStateOptions,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> {}
+  ): Promise<any> {
+    // Since request is typed as any it shouldn't need any data,
+    // but since agent-js 2.1.3 this would cause a runtime error.
+    return {
+      body: {
+        content: {},
+      },
+    };
+  }
 
   async readState(
     _canisterId: Principal | string,

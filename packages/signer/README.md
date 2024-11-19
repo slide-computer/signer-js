@@ -29,7 +29,7 @@ Make sure to connect before using signer if the transport requires a connection
 
 ```js
 if (transport.connection && !transport.connection.connected) {
-  await transport.connection.connect();
+    await transport.connection.connect();
 }
 ```
 
@@ -55,12 +55,16 @@ a `DelegationIdentity` which in turn can be used with the `HttpAgent`.
 
 ## List of available transports
 
-Efforts are made to standardize the transports, for example ICRC-29. For wallets that do not implement a standardized
-transport method, additional packages are available.
+Efforts are made to standardize the transports, for example ICRC-29 and ICRC-94. For wallets that do not implement a
+standardized transport method, additional polyfill packages are available.
 
-| Package                                        | Supported signers |
+| Standardized packages              | Supported signers |
+|------------------------------------|-------------------|
+| `@slide-computer/signer-web`       | NFID, Oisy, Slide |
+| `@slide-computer/signer-extension` | PrimeVault        |
+
+| Polyfill packages                              | Supported signers |
 |------------------------------------------------|-------------------|
-| `@slide-computer/signer-web`                   | NFID, Oisy, Slide |
 | `@slide-computer/signer-transport-plug`        | Plug              |
 | `@slide-computer/signer-transport-stoic`       | Stoic             |
 | `@slide-computer/signer-transport-auth-client` | Internet Identity |

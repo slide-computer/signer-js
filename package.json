@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer",
-  "version": "3.6.4",
+  "version": "3.7.0",
   "private": true,
   "description": "Initiate transactions and authenticate with signers on the Internet Computer",
   "workspaces": {
@@ -11,6 +11,7 @@
       "./packages/signer-client",
       "./packages/signer-signatures",
       "./packages/signer-web",
+      "./packages/signer-extension",
       "./packages/signer-transport-auth-client",
       "./packages/signer-transport-plug",
       "./packages/signer-transport-stoic"

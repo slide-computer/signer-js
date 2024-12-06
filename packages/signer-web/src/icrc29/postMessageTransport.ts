@@ -49,6 +49,11 @@ export interface PostMessageTransportOptions {
    * @default true
    */
   manageFocus?: boolean;
+  /**
+   * Close signer window on communication channel establish timeout
+   * @default true
+   */
+  closeOnEstablishTimeout?: boolean;
 }
 
 export class PostMessageTransport implements Transport {
@@ -67,6 +72,7 @@ export class PostMessageTransport implements Transport {
       statusPollingRate: 300,
       crypto: globalThis.crypto,
       manageFocus: true,
+      closeOnEstablishTimeout: true,
       ...options,
     };
   }
@@ -96,6 +102,9 @@ export class PostMessageTransport implements Transport {
           return;
         }
         clearInterval(heartbeatInterval);
+        if (this.#options.closeOnEstablishTimeout) {
+          signerWindow.close();
+        }
         reject(
           new PostMessageTransportError(
             "Communication channel could not be established within a reasonable time",

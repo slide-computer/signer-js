@@ -1,14 +1,11 @@
-type Job = () => Promise<unknown>;
-
 export class Queue {
   #ongoing: Promise<void> = Promise.resolve();
 
-  async schedule<T extends Job>(job: T): Promise<ReturnType<T>> {
-    return new Promise<ReturnType<T>>((resolve, reject) => {
+  async schedule<T>(job: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
       this.#ongoing = this.#ongoing.finally(async () => {
         try {
-          const value = (await job()) as ReturnType<T>;
-          resolve(value);
+          resolve(await job());
         } catch (error) {
           reject(error);
         }

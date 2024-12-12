@@ -20,6 +20,7 @@ import { type JsonObject, lebDecode, PipeArrayBuffer } from "@dfinity/candid";
 import { Principal } from "@dfinity/principal";
 import { type Signer, toBase64 } from "@slide-computer/signer";
 import { decodeCallRequest } from "./utils";
+import { Queue } from "./Queue";
 
 const MAX_AGE_IN_MINUTES = 5;
 const INVALID_RESPONSE_MESSAGE = "Received invalid response from signer";
@@ -47,13 +48,14 @@ export class SignerAgentError extends Error {
   }
 }
 
-export class SignerAgent<T extends Pick<Signer, "callCanister">>
+export class SignerAgent<T extends Pick<Signer, "callCanister" | "openChannel">>
   implements Agent
 {
   // noinspection JSUnusedLocalSymbols
   static #isInternalConstructing: boolean = false;
   readonly #options: Required<SignerAgentOptions<T>>;
   readonly #certificates = new Map<string, ArrayBuffer>();
+  readonly #queue = new Queue();
 
   constructor(options: Required<SignerAgentOptions<T>>) {
     const throwError = !SignerAgent.#isInternalConstructing;
@@ -72,7 +74,7 @@ export class SignerAgent<T extends Pick<Signer, "callCanister">>
     return this.#options.signer;
   }
 
-  static async create<T extends Pick<Signer, "callCanister">>(
+  static async create<T extends Pick<Signer, "callCanister" | "openChannel">>(
     options: SignerAgentOptions<T>,
   ) {
     SignerAgent.#isInternalConstructing = true;
@@ -82,7 +84,7 @@ export class SignerAgent<T extends Pick<Signer, "callCanister">>
     });
   }
 
-  static createSync<T extends Pick<Signer, "callCanister">>(
+  static createSync<T extends Pick<Signer, "callCanister" | "openChannel">>(
     options: SignerAgentOptions<T>,
   ) {
     SignerAgent.#isInternalConstructing = true;
@@ -103,13 +105,20 @@ export class SignerAgent<T extends Pick<Signer, "callCanister">>
     // Make sure canisterId is a principal
     canisterId = Principal.from(canisterId);
 
-    // Make call through signer
-    const response = await this.#options.signer.callCanister({
-      canisterId,
-      sender: this.#options.account,
-      method: options.methodName,
-      arg: options.arg,
-    });
+    // Manually open the transport channel here first to make sure that
+    // the async queue does not e.g. block a popup window from opening.
+    await this.#options.signer.openChannel();
+
+    // Make call through signer with an async queue, this makes sure that even when a developer
+    // makes multiple calls in parallel with Promise.all(), they are forced to execute in sequence.
+    const response = await this.#queue.schedule(() =>
+      this.#options.signer.callCanister({
+        canisterId,
+        sender: this.#options.account,
+        method: options.methodName,
+        arg: options.arg,
+      }),
+    );
 
     // Validate content map
     const requestBody = decodeCallRequest(response.contentMap);

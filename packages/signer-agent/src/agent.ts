@@ -20,7 +20,7 @@ import { type JsonObject, lebDecode, PipeArrayBuffer } from "@dfinity/candid";
 import { Principal } from "@dfinity/principal";
 import { type Signer, toBase64 } from "@slide-computer/signer";
 import { decodeCallRequest } from "./utils";
-import { Queue } from "./Queue";
+import { Queue } from "./queue";
 
 const MAX_AGE_IN_MINUTES = 5;
 const INVALID_RESPONSE_MESSAGE = "Received invalid response from signer";

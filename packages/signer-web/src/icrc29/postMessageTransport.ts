@@ -99,19 +99,20 @@ export class PostMessageTransport implements Transport {
       let disconnectTimeout: ReturnType<typeof setTimeout>;
 
       // Open signer window
+      if (this.#options.detectNonClickEstablishment && !this.#withinClick) {
+        reject(
+          new PostMessageTransportError(
+            `Signer window should not be opened outside of click handler, see: ${NON_CLICK_ESTABLISHMENT_LINK}`,
+          ),
+        );
+        return;
+      }
       const signerWindow = this.#options.window.open(
         this.#options.url,
         "signerWindow",
         this.#options.windowOpenerFeatures,
       );
       if (!signerWindow) {
-        if (this.#options.detectNonClickEstablishment && !this.#withinClick) {
-          reject(
-            new PostMessageTransportError(
-              `Signer window should not be opened outside of click handler, see: ${NON_CLICK_ESTABLISHMENT_LINK}`,
-            ),
-          );
-        }
         reject(
           new PostMessageTransportError("Signer window could not be opened"),
         );

@@ -2,6 +2,9 @@ import { isJsonRpcResponse, type Transport } from "@slide-computer/signer";
 import { PostMessageChannel } from "./postMessageChannel";
 import { urlIsSecureContext } from "../utils";
 
+const NON_CLICK_ESTABLISHMENT_LINK =
+  "https://github.com/slide-computer/signer-js/blob/main/packages/signer-web/README.md#channels-must-be-established-in-a-click-handler";
+
 export class PostMessageTransportError extends Error {
   constructor(message: string) {
     super(message);
@@ -54,10 +57,16 @@ export interface PostMessageTransportOptions {
    * @default true
    */
   closeOnEstablishTimeout?: boolean;
+  /**
+   * Detect attempts to establish channel outside of click handler
+   * @default true
+   */
+  detectNonClickEstablishment?: boolean;
 }
 
 export class PostMessageTransport implements Transport {
   readonly #options: Required<PostMessageTransportOptions>;
+  #withinClick = false;
 
   constructor(options: PostMessageTransportOptions) {
     if (!urlIsSecureContext(options.url)) {
@@ -73,8 +82,14 @@ export class PostMessageTransport implements Transport {
       crypto: globalThis.crypto,
       manageFocus: true,
       closeOnEstablishTimeout: true,
+      detectNonClickEstablishment: true,
       ...options,
     };
+
+    if (this.#options.detectNonClickEstablishment) {
+      window.addEventListener("click", () => (this.#withinClick = true), true);
+      window.addEventListener("click", () => (this.#withinClick = false));
+    }
   }
 
   async establishChannel(): Promise<PostMessageChannel> {
@@ -90,6 +105,13 @@ export class PostMessageTransport implements Transport {
         this.#options.windowOpenerFeatures,
       );
       if (!signerWindow) {
+        if (this.#options.detectNonClickEstablishment && !this.#withinClick) {
+          reject(
+            new PostMessageTransportError(
+              `Signer window should not be opened outside of click handler, see: ${NON_CLICK_ESTABLISHMENT_LINK}`,
+            ),
+          );
+        }
         reject(
           new PostMessageTransportError("Signer window could not be opened"),
         );

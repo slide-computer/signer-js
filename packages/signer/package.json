@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer",
-  "version": "3.7.2",
+  "version": "3.8.0",
   "author": "Slide",
   "license": "MIT",
   "description": "JavaScript and TypeScript library to interact with signers on the Internet Computer",

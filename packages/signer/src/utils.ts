@@ -3,10 +3,8 @@ export const fromBase64 = (base64: string): ArrayBuffer => {
     return globalThis.Buffer.from(base64, "base64").buffer;
   }
   if (typeof globalThis.atob !== "undefined") {
-    return Uint8Array.from(
-      globalThis.atob(base64),
-      (m) => m.charCodeAt(0),
-    ).buffer;
+    return Uint8Array.from(globalThis.atob(base64), (m) => m.charCodeAt(0))
+      .buffer;
   }
   throw Error("Could not decode base64 string");
 };
@@ -20,5 +18,3 @@ export const toBase64 = (bytes: ArrayBuffer): string => {
   }
   throw Error("Could not encode base64 string");
 };
-
-export type RequiredKeys<T, P extends keyof T> = Required<Pick<T, P>> & Omit<T, P>

@@ -72,14 +72,16 @@ swapButton.onClick = () => transferFrom(50000n);
 ```
 
 In the second example, a function call with `await` has moved all the calls below outside the context of the click
-handler. In some browsers - particularly Safari - this means that the popup opened when the post message transport
-channel is established will be **blocked**.
+handler.
+
+In some browsers - particularly Safari - this means that the popup opened when the post message transport channel is
+established will be **blocked**.
 
 The post message transport's `detectNonClickEstablishment` option (default: true) detects this in all browsers and
 throws an error to make sure this issue can be caught by a developer even if they're not using a browser that would have
 blocked the popup.
 
-There's are multiple ways to fix this error:
+There are multiple ways to fix this error:
 
 1. Make the `await` function calls outside the click handler:
     ```js

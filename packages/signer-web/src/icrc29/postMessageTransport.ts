@@ -102,19 +102,19 @@ export class PostMessageTransport implements Transport {
       if (this.#options.detectNonClickEstablishment && !this.#withinClick) {
         reject(
           new PostMessageTransportError(
-            `Signer window should not be opened outside of click handler, see: ${NON_CLICK_ESTABLISHMENT_LINK}`,
-          ),
+            `Signer window should not be opened outside of click handler, see: ${NON_CLICK_ESTABLISHMENT_LINK}`
+          )
         );
         return;
       }
       const signerWindow = this.#options.window.open(
         this.#options.url,
         "signerWindow",
-        this.#options.windowOpenerFeatures,
+        this.#options.windowOpenerFeatures
       );
       if (!signerWindow) {
         reject(
-          new PostMessageTransportError("Signer window could not be opened"),
+          new PostMessageTransportError("Signer window could not be opened")
         );
         return;
       }
@@ -130,51 +130,66 @@ export class PostMessageTransport implements Transport {
         }
         reject(
           new PostMessageTransportError(
-            "Communication channel could not be established within a reasonable time",
-          ),
+            "Communication channel could not be established within a reasonable time"
+          )
         );
       }, this.#options.establishTimeout);
 
-      heartbeatInterval = setInterval(() => {
-        const id = crypto.randomUUID();
-        const listener = async (event: MessageEvent) => {
-          if (
-            event.source !== signerWindow ||
-            !isJsonRpcResponse(event.data) ||
-            event.data.id !== id ||
-            !("result" in event.data) ||
-            event.data.result !== "ready"
-          ) {
-            return;
-          }
-          this.#options.window.removeEventListener("message", listener);
+      let id = crypto.randomUUID();
+      let timestamp = 0;
+      let interval: NodeJS.Timeout;
 
-          // Communication channel is established when first ready message is received
-          if (!channel) {
-            channel = new PostMessageChannel({
-              ...this.#options,
-              signerOrigin: event.origin,
-              signerWindow: signerWindow,
-            });
-            clearTimeout(establishTimeout);
-            resolve(channel);
-            return;
-          }
-
-          // Communication channel has disconnected if no ready message has been received for a while
-          clearTimeout(disconnectTimeout);
-          disconnectTimeout = setTimeout(() => {
-            clearInterval(heartbeatInterval);
-            channel.close();
-          }, this.#options.disconnectTimeout);
-        };
-
-        this.#options.window.addEventListener("message", listener);
+      const postMessage = () => {
+        id = crypto.randomUUID();
+        timestamp = Date.now();
         signerWindow.postMessage(
           { jsonrpc: "2.0", id, method: "icrc29_status" },
-          "*",
+          "*"
         );
-      }, this.#options.statusPollingRate);
+      };
+
+      const listener = async (event: MessageEvent) => {
+        if (
+          event.source !== signerWindow ||
+          !isJsonRpcResponse(event.data) ||
+          event.data.id !== id ||
+          !("result" in event.data) ||
+          event.data.result !== "ready"
+        ) {
+          return;
+        }
+
+        // Communication channel is established when first ready message is received
+        if (!channel) {
+          channel = new PostMessageChannel({
+            ...this.#options,
+            signerOrigin: event.origin,
+            signerWindow: signerWindow,
+          });
+          clearTimeout(establishTimeout);
+          clearInterval(interval);
+          resolve(channel);
+        }
+
+        if (Date.now() - timestamp <= this.#options.statusPollingRate) {
+          clearTimeout(disconnectTimeout);
+
+          setTimeout(() => {
+            disconnectTimeout = setTimeout(() => {
+              this.#options.window.removeEventListener("message", listener);
+              channel.close();
+            }, this.#options.disconnectTimeout);
+
+            postMessage();
+          }, this.#options.statusPollingRate);
+
+          return;
+        }
+      };
+
+      this.#options.window.addEventListener("message", listener);
+
+      interval = setInterval(postMessage, this.#options.statusPollingRate);
     });
   }
 }

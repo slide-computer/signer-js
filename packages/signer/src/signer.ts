@@ -109,7 +109,7 @@ export class Signer<T extends Transport = Transport> {
   #establishingChannel?: Promise<void>;
   #scheduledChannelClosure?: ReturnType<typeof setTimeout>;
 
-  private constructor(options: SignerOptions<T>) {
+  constructor(options: SignerOptions<T>) {
     this.#options = {
       autoCloseTransportChannel: true,
       closeTransportChannelAfter: 200,

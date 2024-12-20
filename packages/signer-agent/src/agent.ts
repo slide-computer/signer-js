@@ -48,8 +48,9 @@ export class SignerAgentError extends Error {
   }
 }
 
-export class SignerAgent<T extends Pick<Signer, "callCanister" | "openChannel">>
-  implements Agent
+export class SignerAgent<
+  T extends Pick<Signer, "callCanister" | "openChannel"> = Signer,
+> implements Agent
 {
   // noinspection JSUnusedLocalSymbols
   static #isInternalConstructing: boolean = false;
@@ -57,7 +58,7 @@ export class SignerAgent<T extends Pick<Signer, "callCanister" | "openChannel">>
   readonly #certificates = new Map<string, ArrayBuffer>();
   readonly #queue = new Queue();
 
-  constructor(options: Required<SignerAgentOptions<T>>) {
+  private constructor(options: Required<SignerAgentOptions<T>>) {
     const throwError = !SignerAgent.#isInternalConstructing;
     SignerAgent.#isInternalConstructing = false;
     if (throwError) {

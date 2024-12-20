@@ -1,6 +1,7 @@
-import { isJsonRpcResponse, type Transport } from "@slide-computer/signer";
+import { type Transport } from "@slide-computer/signer";
 import { PostMessageChannel } from "./postMessageChannel";
 import { urlIsSecureContext } from "../utils";
+import { Heartbeat } from "./heartbeat";
 
 const NON_CLICK_ESTABLISHMENT_LINK =
   "https://github.com/slide-computer/signer-js/blob/main/packages/signer-web/README.md#channels-must-be-established-in-a-click-handler";
@@ -64,9 +65,15 @@ export interface PostMessageTransportOptions {
   detectNonClickEstablishment?: boolean;
 }
 
+// Boolean that tracks click events to check if the popup is opened within a click context
+let withinClick = false;
+if (globalThis.window) {
+  globalThis.window.addEventListener("click", () => (withinClick = true), true);
+  globalThis.window.addEventListener("click", () => (withinClick = false));
+}
+
 export class PostMessageTransport implements Transport {
   readonly #options: Required<PostMessageTransportOptions>;
-  #withinClick = false;
 
   constructor(options: PostMessageTransportOptions) {
     if (!urlIsSecureContext(options.url)) {
@@ -85,96 +92,48 @@ export class PostMessageTransport implements Transport {
       detectNonClickEstablishment: true,
       ...options,
     };
-
-    if (this.#options.detectNonClickEstablishment) {
-      window.addEventListener("click", () => (this.#withinClick = true), true);
-      window.addEventListener("click", () => (this.#withinClick = false));
-    }
   }
 
   async establishChannel(): Promise<PostMessageChannel> {
+    if (this.#options.detectNonClickEstablishment && !withinClick) {
+      throw new PostMessageTransportError(
+        `Signer window should not be opened outside of click handler, see: ${NON_CLICK_ESTABLISHMENT_LINK}`,
+      );
+    }
+    const signerWindow = this.#options.window.open(
+      this.#options.url,
+      "signerWindow",
+      this.#options.windowOpenerFeatures,
+    );
+    if (!signerWindow) {
+      throw new PostMessageTransportError("Signer window could not be opened");
+    }
+
     return new Promise<PostMessageChannel>((resolve, reject) => {
       let channel: PostMessageChannel;
-      let heartbeatInterval: ReturnType<typeof setInterval>;
-      let disconnectTimeout: ReturnType<typeof setTimeout>;
-
-      // Open signer window
-      if (this.#options.detectNonClickEstablishment && !this.#withinClick) {
-        reject(
-          new PostMessageTransportError(
-            `Signer window should not be opened outside of click handler, see: ${NON_CLICK_ESTABLISHMENT_LINK}`,
-          ),
-        );
-        return;
-      }
-      const signerWindow = this.#options.window.open(
-        this.#options.url,
-        "signerWindow",
-        this.#options.windowOpenerFeatures,
-      );
-      if (!signerWindow) {
-        reject(
-          new PostMessageTransportError("Signer window could not be opened"),
-        );
-        return;
-      }
-
-      // Establishing the communication channel needs to happen within a reasonable time
-      const establishTimeout = setTimeout(() => {
-        if (channel) {
-          return;
-        }
-        clearInterval(heartbeatInterval);
-        if (this.#options.closeOnEstablishTimeout) {
-          signerWindow.close();
-        }
-        reject(
-          new PostMessageTransportError(
-            "Communication channel could not be established within a reasonable time",
-          ),
-        );
-      }, this.#options.establishTimeout);
-
-      heartbeatInterval = setInterval(() => {
-        const id = crypto.randomUUID();
-        const listener = async (event: MessageEvent) => {
-          if (
-            event.source !== signerWindow ||
-            !isJsonRpcResponse(event.data) ||
-            event.data.id !== id ||
-            !("result" in event.data) ||
-            event.data.result !== "ready"
-          ) {
-            return;
+      new Heartbeat({
+        ...this.#options,
+        signerWindow,
+        onEstablish: (origin) => {
+          channel = new PostMessageChannel({
+            ...this.#options,
+            signerOrigin: origin,
+            signerWindow: signerWindow,
+          });
+          resolve(channel);
+        },
+        onEstablishTimeout: () => {
+          if (this.#options.closeOnEstablishTimeout) {
+            signerWindow.close();
           }
-          this.#options.window.removeEventListener("message", listener);
-
-          // Communication channel is established when first ready message is received
-          if (!channel) {
-            channel = new PostMessageChannel({
-              ...this.#options,
-              signerOrigin: event.origin,
-              signerWindow: signerWindow,
-            });
-            clearTimeout(establishTimeout);
-            resolve(channel);
-            return;
-          }
-
-          // Communication channel has disconnected if no ready message has been received for a while
-          clearTimeout(disconnectTimeout);
-          disconnectTimeout = setTimeout(() => {
-            clearInterval(heartbeatInterval);
-            channel.close();
-          }, this.#options.disconnectTimeout);
-        };
-
-        this.#options.window.addEventListener("message", listener);
-        signerWindow.postMessage(
-          { jsonrpc: "2.0", id, method: "icrc29_status" },
-          "*",
-        );
-      }, this.#options.statusPollingRate);
+          reject(
+            new PostMessageTransportError(
+              "Communication channel could not be established within a reasonable time",
+            ),
+          );
+        },
+        onDisconnect: () => channel.close(),
+      });
     });
   }
 }

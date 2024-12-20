@@ -68,7 +68,7 @@ export class Heartbeat {
       this.#options.onEstablishTimeout();
     }, this.#options.establishTimeout);
 
-    const listener = this.#listenReadyResponse((response) => {
+    const listener = this.#receiveReadyResponse((response) => {
       listener();
       clearInterval(interval);
       clearTimeout(timeout);
@@ -87,7 +87,7 @@ export class Heartbeat {
     let timeout: ReturnType<typeof setTimeout>;
     let id: string;
 
-    const listener = this.#listenReadyResponse((response) => {
+    const listener = this.#receiveReadyResponse((response) => {
       if (id && response.data.id === id && response.origin === origin) {
         clearTimeout(timeout);
         setTimeout(poll, this.#options.statusPollingRate);
@@ -107,7 +107,7 @@ export class Heartbeat {
     setTimeout(poll, this.#options.statusPollingRate);
   }
 
-  #listenReadyResponse(
+  #receiveReadyResponse(
     handler: (event: MessageEvent<JsonResponse<"ready">>) => void,
   ): () => void {
     const listener = (event: MessageEvent) => {

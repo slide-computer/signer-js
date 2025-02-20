@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-storage",
-  "version": "3.12.0",
+  "version": "3.14.0",
   "author": "Slide",
   "license": "MIT",
   "description": "Storage implementation for signer library on the Internet Computer",
@@ -40,7 +40,7 @@
     "build": "tsc -b && tsc -p tsconfig-cjs.json"
   },
   "peerDependencies": {
-    "@dfinity/identity": "^2.1.3"
+    "@dfinity/identity": "^2.3.0"
   },
   "dependencies": {
     "idb-keyval": "^6.2.1"

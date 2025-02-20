@@ -1,6 +1,6 @@
 import { isJsonRpcResponse, type JsonResponse } from "@slide-computer/signer";
 
-export interface HeartbeatOptions {
+export interface HeartbeatClientOptions {
   /**
    * Signer window to send and receive heartbeat messages from
    */
@@ -44,10 +44,10 @@ export interface HeartbeatOptions {
   crypto?: Pick<Crypto, "randomUUID">;
 }
 
-export class Heartbeat {
-  readonly #options: Required<HeartbeatOptions>;
+export class HeartbeatClient {
+  readonly #options: Required<HeartbeatClientOptions>;
 
-  constructor(options: HeartbeatOptions) {
+  constructor(options: HeartbeatClientOptions) {
     this.#options = {
       establishTimeout: 10000,
       disconnectTimeout: 2000,
@@ -61,6 +61,29 @@ export class Heartbeat {
   }
 
   #establish(): void {
+    let pending: Array<string | number> = [];
+
+    // Create new pending entry that's waiting for a response
+    const create = (): string => {
+      const id = this.#options.crypto.randomUUID();
+      pending.push(id);
+      return id;
+    };
+
+    // Establish communication channel if a response is received for any pending id
+    const listener = this.#receiveReadyResponse((response) => {
+      if (pending.includes(response.data.id)) {
+        pending = [];
+        listener();
+        clearInterval(interval);
+        clearTimeout(timeout);
+
+        this.#options.onEstablish(response.origin);
+        this.#maintain(response.origin);
+      }
+    });
+
+    // Init timeout
     const timeout = setTimeout(() => {
       listener();
       clearInterval(interval);
@@ -68,43 +91,66 @@ export class Heartbeat {
       this.#options.onEstablishTimeout();
     }, this.#options.establishTimeout);
 
-    const listener = this.#receiveReadyResponse((response) => {
-      listener();
-      clearInterval(interval);
-      clearTimeout(timeout);
-
-      this.#options.onEstablish(response.origin);
-      this.#maintain(response.origin);
-    });
-
+    // Start sending requests
     const interval = setInterval(
-      () => this.#sendStatusMessage(this.#options.crypto.randomUUID()),
+      () => this.#sendStatusRequest(create()),
       this.#options.statusPollingRate,
     );
   }
 
   #maintain(origin: string): void {
+    let interval: ReturnType<typeof setInterval>;
     let timeout: ReturnType<typeof setTimeout>;
-    let id: string;
+    let pending: Array<{ id: string | number; time: number }> = [];
 
+    // Consume a pending entry if it exists
+    const consume = (id: string | number): boolean => {
+      const index = pending.findIndex((entry) => entry.id === id);
+      if (index > -1) {
+        pending.splice(index, 1);
+      }
+      return index > -1;
+    };
+
+    // Create new pending entry that's waiting for a response
+    const create = (): string => {
+      const id = this.#options.crypto.randomUUID();
+      const time = new Date().getTime();
+
+      // Cleanup ids outside disconnect window
+      pending = pending.filter(
+        (entry) => time - this.#options.disconnectTimeout > entry.time,
+      );
+
+      // Insert and return new id
+      pending.push({ id, time });
+      return id;
+    };
+
+    // Clear existing timeout (if any) and create a new one
+    const resetTimeout = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        listener();
+        clearInterval(interval);
+
+        this.#options.onDisconnect();
+      }, this.#options.disconnectTimeout);
+    };
+
+    // Reset disconnect timeout if a response is received to an id within disconnect window
     const listener = this.#receiveReadyResponse((response) => {
-      if (id && response.data.id === id && response.origin === origin) {
-        clearTimeout(timeout);
-        setTimeout(poll, this.#options.statusPollingRate);
+      if (response.origin === origin && consume(response.data.id)) {
+        resetTimeout();
       }
     });
 
-    const poll = () => {
-      id = this.#options.crypto.randomUUID();
-      timeout = setTimeout(() => {
-        listener();
-        this.#options.onDisconnect();
-      }, this.#options.disconnectTimeout);
-
-      this.#sendStatusMessage(id);
-    };
-
-    setTimeout(poll, this.#options.statusPollingRate);
+    // Init timeout and start sending requests
+    resetTimeout();
+    interval = setInterval(
+      () => this.#sendStatusRequest(create()),
+      this.#options.statusPollingRate,
+    );
   }
 
   #receiveReadyResponse(
@@ -124,7 +170,7 @@ export class Heartbeat {
     return () => this.#options.window.removeEventListener("message", listener);
   }
 
-  #sendStatusMessage(id: string): void {
+  #sendStatusRequest(id: string): void {
     this.#options.signerWindow.postMessage(
       { jsonrpc: "2.0", id, method: "icrc29_status" },
       "*",

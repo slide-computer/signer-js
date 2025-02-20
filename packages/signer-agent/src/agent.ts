@@ -4,6 +4,7 @@ import {
   Certificate,
   compare,
   HttpAgent,
+  IC_ROOT_KEY,
   type Identity,
   lookupResultToBuffer,
   LookupStatus,
@@ -22,6 +23,9 @@ import { type Signer, toBase64 } from "@slide-computer/signer";
 import { decodeCallRequest } from "./utils";
 import { Queue } from "./queue";
 
+const ROOT_KEY = new Uint8Array(
+  IC_ROOT_KEY.match(/[\da-f]{2}/gi)!.map((h) => parseInt(h, 16)),
+).buffer;
 const MAX_AGE_IN_MINUTES = 5;
 const INVALID_RESPONSE_MESSAGE = "Received invalid response from signer";
 
@@ -68,7 +72,7 @@ export class SignerAgent<
   }
 
   get rootKey() {
-    return this.#options.agent.rootKey;
+    return this.#options.agent.rootKey ?? ROOT_KEY;
   }
 
   get signer(): T {

@@ -296,7 +296,7 @@ export class StoicConnection implements Connection {
               const challenge = toHex(
                 new Uint8Array([
                   ...new TextEncoder().encode("\x1Aic-request-auth-delegation"),
-                  ...new Uint8Array(requestIdOf(delegation)),
+                  ...new Uint8Array(requestIdOf({ ...delegation })),
                 ]).buffer,
               );
               tunnel.contentWindow.postMessage(

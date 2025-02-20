@@ -108,3 +108,24 @@ There are multiple ways to fix this error:
     ```
 3. Disable this error by setting `detectNonClickEstablishment` to `false`, be aware that this does not resolve the
    underlying issue of popups possibly being blocked in some browsers.
+
+### Establishing a communication channel as a signer with a relying party
+
+```js
+new HeartBeatServer({
+    onEstablish: (origin, source) => {
+        // 1. Show origin to user to identify the relying party
+        // 2. Use origin and source to communicate with relying party
+    },
+    onEstablishTimeout: () => {
+        // Wrong place
+        // Seems you arrived here for approval,
+        // but no service has requested it.
+    },
+    onDisconnect: () => {
+        // Connection closed
+        // It seems like the connection with
+        // the service closed unexpectedly.
+    }
+});
+```

@@ -56,7 +56,7 @@ export const isIdentitySignatureValid = async ({
         signature: delegationChain.delegations[i].signature,
         challenge: concat(
           DELEGATION_DOMAIN_SEP.buffer,
-          requestIdOf(delegationChain.delegations[i].delegation),
+          requestIdOf({ ...delegationChain.delegations[i].delegation }),
         ),
         rootKey,
       }))

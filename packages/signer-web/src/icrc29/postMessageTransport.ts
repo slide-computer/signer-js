@@ -1,7 +1,7 @@
 import { type Transport } from "@slide-computer/signer";
 import { PostMessageChannel } from "./postMessageChannel";
 import { urlIsSecureContext } from "../utils";
-import { Heartbeat } from "./heartbeat";
+import { HeartbeatClient } from "./heartbeat";
 
 const NON_CLICK_ESTABLISHMENT_LINK =
   "https://github.com/slide-computer/signer-js/blob/main/packages/signer-web/README.md#channels-must-be-established-in-a-click-handler";
@@ -111,7 +111,7 @@ export class PostMessageTransport implements Transport {
 
     return new Promise<PostMessageChannel>((resolve, reject) => {
       let channel: PostMessageChannel;
-      new Heartbeat({
+      new HeartbeatClient({
         ...this.#options,
         signerWindow,
         onEstablish: (origin) => {

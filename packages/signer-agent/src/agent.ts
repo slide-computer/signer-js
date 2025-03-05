@@ -43,6 +43,16 @@ export interface SignerAgentOptions<T extends Pick<Signer, "callCanister">> {
    * @default uses {@link HttpAgent} by default
    */
   agent?: HttpAgent;
+  /**
+   * Optional, delay in milliseconds used to detect parallel calls and turn them into a single batch call
+   * @default 20
+   */
+  scheduleDelay?: number;
+  /**
+   * Optional, validation used with batch call canister
+   * @default null
+   */
+  validation?: { canisterId: Principal; method: string } | null;
 }
 
 export class SignerAgentError extends Error {
@@ -52,8 +62,29 @@ export class SignerAgentError extends Error {
   }
 }
 
+interface ScheduledCall {
+  options: {
+    canisterId: Principal;
+    method: string;
+    arg: ArrayBuffer;
+  };
+  resolve: (response: {
+    contentMap: ArrayBuffer;
+    certificate: ArrayBuffer;
+  }) => void;
+  reject: (error: unknown) => void;
+}
+
+interface Validation {
+  canisterId: Principal;
+  method: string;
+}
+
 export class SignerAgent<
-  T extends Pick<Signer, "callCanister" | "openChannel"> = Signer,
+  T extends Pick<
+    Signer,
+    "callCanister" | "openChannel" | "supportedStandards" | "batchCallCanister"
+  > = Signer,
 > implements Agent
 {
   // noinspection JSUnusedLocalSymbols
@@ -61,6 +92,10 @@ export class SignerAgent<
   readonly #options: Required<SignerAgentOptions<T>>;
   readonly #certificates = new Map<string, ArrayBuffer>();
   readonly #queue = new Queue();
+  #executeTimeout?: ReturnType<typeof setTimeout>;
+  #scheduled: ScheduledCall[][] = [[]];
+  #autoBatch: boolean = true;
+  #validation?: Validation;
 
   private constructor(options: Required<SignerAgentOptions<T>>) {
     const throwError = !SignerAgent.#isInternalConstructing;
@@ -79,23 +114,125 @@ export class SignerAgent<
     return this.#options.signer;
   }
 
-  static async create<T extends Pick<Signer, "callCanister" | "openChannel">>(
-    options: SignerAgentOptions<T>,
-  ) {
+  static async create<
+    T extends Pick<
+      Signer,
+      | "callCanister"
+      | "openChannel"
+      | "supportedStandards"
+      | "batchCallCanister"
+    >,
+  >(options: SignerAgentOptions<T>) {
     SignerAgent.#isInternalConstructing = true;
     return new SignerAgent<T>({
       ...options,
       agent: options.agent ?? (await HttpAgent.create()),
+      scheduleDelay: options.scheduleDelay ?? 20,
+      validation: options.validation ?? null,
     });
   }
 
-  static createSync<T extends Pick<Signer, "callCanister" | "openChannel">>(
-    options: SignerAgentOptions<T>,
-  ) {
+  static createSync<
+    T extends Pick<
+      Signer,
+      | "callCanister"
+      | "openChannel"
+      | "supportedStandards"
+      | "batchCallCanister"
+    >,
+  >(options: SignerAgentOptions<T>) {
     SignerAgent.#isInternalConstructing = true;
     return new SignerAgent<T>({
       ...options,
       agent: options.agent ?? HttpAgent.createSync(),
+      scheduleDelay: options.scheduleDelay ?? 20,
+      validation: options.validation ?? null,
+    });
+  }
+
+  async execute() {
+    const scheduled = [...this.#scheduled];
+    const validation = this.#validation;
+    this.clear();
+
+    const pending = scheduled.flat().length;
+    if (pending === 0) {
+      this.#validation = undefined;
+      return;
+    }
+
+    const needsBatch = pending > 1;
+    if (!needsBatch) {
+      await this.#executeQueue(scheduled);
+      return;
+    }
+
+    const supportedStandards = await this.#queue.schedule(() =>
+      this.signer.supportedStandards(),
+    );
+    const supportsBatch = supportedStandards.some(
+      (supportedStandard) => supportedStandard.name === "ICRC-112",
+    );
+    if (supportsBatch) {
+      await this.#executeBatch(scheduled, validation);
+    } else {
+      await this.#executeQueue(scheduled);
+    }
+  }
+
+  async #executeQueue(scheduled: ScheduledCall[][]): Promise<void> {
+    await Promise.all(
+      scheduled.flat().map(({ options, resolve, reject }) =>
+        this.#queue.schedule(async () => {
+          try {
+            const response = await this.signer.callCanister({
+              sender: this.#options.account,
+              ...options,
+            });
+            resolve(response);
+          } catch (error) {
+            reject(error);
+          }
+        }),
+      ),
+    );
+  }
+
+  async #executeBatch(
+    scheduled: ScheduledCall[][],
+    validation?: Validation,
+  ): Promise<void> {
+    await this.#queue.schedule(async () => {
+      try {
+        const responses = await this.signer.batchCallCanister({
+          sender: this.#options.account,
+          requests: scheduled.map((entries) =>
+            entries.map(({ options }) => options),
+          ),
+          validation: validation ?? undefined,
+        });
+        scheduled.forEach((entries, sequenceIndex) =>
+          entries.forEach(({ resolve, reject }, requestIndex) => {
+            const response = responses[sequenceIndex][requestIndex];
+            if ("result" in response) {
+              resolve(response.result);
+              return;
+            }
+            if ("error" in response) {
+              reject(
+                new SignerAgentError(
+                  `${response.error.code}: ${response.error.message}\n${JSON.stringify(response.error.data)}`,
+                ),
+              );
+              return;
+            }
+            reject(new SignerAgentError(INVALID_RESPONSE_MESSAGE));
+          }),
+        );
+      } catch (error) {
+        // Forward error to each canister call handler
+        scheduled.flat().forEach(({ reject }) => reject(error));
+      }
     });
   }
 
@@ -111,19 +248,30 @@ export class SignerAgent<
     canisterId = Principal.from(canisterId);
 
     // Manually open the transport channel here first to make sure that
-    // the async queue does not e.g. block a popup window from opening.
+    // the scheduler does not e.g. block a popup window from opening.
     await this.#options.signer.openChannel();
 
-    // Make call through signer with an async queue, this makes sure that even when a developer
-    // makes multiple calls in parallel with Promise.all(), they are forced to execute in sequence.
-    const response = await this.#queue.schedule(() =>
-      this.#options.signer.callCanister({
-        canisterId,
-        sender: this.#options.account,
-        method: options.methodName,
-        arg: options.arg,
-      }),
-    );
+    // Make call through scheduler that automatically performs a single call or batch call.
+    const response = await new Promise<
+      Awaited<ReturnType<Signer["callCanister"]>>
+    >((resolve, reject) => {
+      clearTimeout(this.#executeTimeout);
+      this.#scheduled.slice(-1)[0].push({
+        options: {
+          canisterId,
+          method: options.methodName,
+          arg: options.arg,
+        },
+        resolve,
+        reject,
+      });
+      if (this.#autoBatch) {
+        this.#executeTimeout = setTimeout(
+          () => this.execute(),
+          this.#options.scheduleDelay,
+        );
+      }
+    });
 
     // Validate content map
     const requestBody = decodeCallRequest(response.contentMap);
@@ -290,5 +438,27 @@ export class SignerAgent<
 
   replaceAccount(account: Principal) {
     this.#options.account = account;
+  }
+
+  replaceValidation(validation?: { canisterId: Principal; method: string }) {
+    this.#validation = validation;
+  }
+
+  /**
+   * Enable manual triggering of canister calls execution
+   */
+  batch() {
+    this.#autoBatch = false;
+    if (this.#scheduled.slice(-1)[0].length > 0) {
+      this.#scheduled.push([]);
+    }
+  }
+
+  /**
+   * Clear scheduled canister calls and switch back to automatic canister calls execution
+   */
+  clear() {
+    this.#scheduled = [[]];
+    this.#autoBatch = true;
   }
 }

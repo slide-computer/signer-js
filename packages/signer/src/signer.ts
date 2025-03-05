@@ -37,6 +37,10 @@ import type {
 } from "./icrc49";
 import { NETWORK_ERROR } from "./errors";
 import { fromBase64, toBase64 } from "./utils";
+import type {
+  BatchCallCanisterRequest,
+  BatchCallCanisterResponse,
+} from "./icrc112";
 
 export class SignerError extends Error {
   public code: number;
@@ -349,5 +353,75 @@ export class Signer<T extends Transport = Transport> {
     const contentMap = fromBase64(result.contentMap);
     const certificate = fromBase64(result.certificate);
     return { contentMap, certificate };
+  }
+
+  async batchCallCanister(params: {
+    sender: Principal;
+    requests: {
+      canisterId: Principal;
+      method: string;
+      arg: ArrayBuffer;
+    }[][];
+    validation?: { canisterId: Principal; method: string };
+  }): Promise<
+    (
+      | {
+          result: {
+            contentMap: ArrayBuffer;
+            certificate: ArrayBuffer;
+          };
+        }
+      | {
+          error: JsonError;
+        }
+    )[][]
+  > {
+    const response = await this.sendRequest<
+      BatchCallCanisterRequest,
+      BatchCallCanisterResponse
+    >({
+      id: this.#options.crypto.randomUUID(),
+      jsonrpc: "2.0",
+      method: "icrc112_batch_call_canister",
+      params: {
+        sender: params.sender.toText(),
+        requests: params.requests.map((requests) =>
+          requests.map((request) => ({
+            canisterId: request.canisterId.toText(),
+            method: request.method,
+            arg: toBase64(request.arg),
+          })),
+        ),
+        validation: params.validation
+          ? {
+              canisterId: params.validation.canisterId.toText(),
+              method: params.validation.method,
+            }
+          : undefined,
+      },
+    });
+    const result = unwrapResponse(response);
+    if (
+      params.requests.length !== result.responses.length ||
+      params.requests.some(
+        (entries, index) => entries.length !== result.responses[index].length,
+      )
+    ) {
+      throw new SignerError({
+        code: NETWORK_ERROR,
+        message:
+          "Invalid batch call canister response, responses structure does not match request structure",
+      });
+    }
+    return result.responses.map((responses) =>
+      responses.map((response) => {
+        if ("result" in response) {
+          const contentMap = fromBase64(response.result.contentMap);
+          const certificate = fromBase64(response.result.certificate);
+          return { result: { contentMap, certificate } };
+        }
+        return response;
+      }),
+    );
   }
 }

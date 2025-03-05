@@ -1,0 +1,4 @@
+!lib/**
+!types/**/*.d.ts
+!package.json
+!README.md

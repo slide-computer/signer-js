@@ -30,20 +30,9 @@ export const decodeCallRequest = (contentMap: ArrayBuffer): CallRequest => {
   };
 };
 
-export const requestIdFromReadStateOptions = (
-  options: ReadStateOptions,
-): RequestId => {
-  if (options.paths.length === 1 && options.paths[0].length == 2) {
-    const path = new TextDecoder().decode(options.paths[0][0]);
-    if (path === "request_status") {
-      return options.paths[0][1] as RequestId;
-    }
-  }
-  throw Error("Request id could not be found in options");
-};
-
-export const requestIdToReadStateOptions = (
-  requestId: RequestId,
-): ReadStateOptions => ({
-  paths: [[new TextEncoder().encode("request_status"), requestId]],
-});
+export const scheduleAndMakeCall = (params: {
+  canisterId: Principal;
+  sender: Principal;
+  method: string;
+  arg: ArrayBuffer;
+}) => {};

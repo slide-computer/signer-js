@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-test",
-  "version": "3.15.0",
+  "version": "3.16.0",
   "author": "Slide",
   "license": "MIT",
   "description": "JavaScript and TypeScript library for signer tests on the Internet Computer",
@@ -41,12 +41,6 @@
   },
   "peerDependencies": {
     "@dfinity/candid": "^2.3.0",
-    "@slide-computer/signer": "^3.15.0"
-  },
-  "devDependencies": {
-    "esbuild": "^0.15.16",
-    "eslint": "^8.56.0",
-    "prettier": "^3.2.5",
-    "typescript": "^5.3.3"
+    "@slide-computer/signer": "^3.16.0"
   }
 }

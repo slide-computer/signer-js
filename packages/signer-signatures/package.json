@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-signatures",
-  "version": "3.15.0",
+  "version": "3.16.0",
   "author": "Slide",
   "license": "MIT",
   "description": "Verify signatures from signers on the Internet Computer",
@@ -46,16 +46,10 @@
     "@dfinity/principal": "^2.3.0"
   },
   "dependencies": {
-    "@noble/curves": "^1.3.0",
-    "@noble/ed25519": "^2.0.0",
-    "@noble/hashes": "^1.3.3",
+    "@noble/curves": "^1.8.1",
+    "@noble/ed25519": "^2.2.3",
+    "@noble/hashes": "^1.7.1",
     "borc": "^2.1.2",
     "buffer": "^6.0.3"
-  },
-  "devDependencies": {
-    "esbuild": "^0.15.16",
-    "eslint": "^8.56.0",
-    "prettier": "^3.2.5",
-    "typescript": "^5.3.3"
   }
 }

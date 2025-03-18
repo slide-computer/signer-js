@@ -38,6 +38,7 @@ import type {
 import { NETWORK_ERROR } from "./errors";
 import { fromBase64, toBase64 } from "./utils";
 import type {
+  BatchCallCanisterPermissionScope,
   BatchCallCanisterRequest,
   BatchCallCanisterResponse,
 } from "./icrc112";
@@ -78,7 +79,8 @@ export type SignerPermissionScope =
   | PermissionScope
   | AccountsPermissionScope
   | DelegationPermissionScope
-  | CallCanisterPermissionScope;
+  | CallCanisterPermissionScope
+  | BatchCallCanisterPermissionScope;
 
 export interface SignerOptions<T extends Transport> {
   /**
@@ -91,7 +93,7 @@ export interface SignerOptions<T extends Transport> {
    */
   autoCloseTransportChannel?: boolean;
   /**
-   * Close transport channel after a given duration in ms
+   * Automatically close transport channel after a given duration in ms
    * @default 200
    */
   closeTransportChannelAfter?: number;

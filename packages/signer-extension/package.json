@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-extension",
-  "version": "3.15.0",
+  "version": "3.16.0",
   "author": "Slide",
   "license": "MIT",
   "description": "JavaScript and TypeScript library to communicate with browser extension signers on the Internet Computer",
@@ -40,12 +40,6 @@
     "build": "tsc -b && tsc -p tsconfig-cjs.json"
   },
   "peerDependencies": {
-    "@slide-computer/signer": "^3.15.0"
-  },
-  "devDependencies": {
-    "esbuild": "^0.15.16",
-    "eslint": "^8.56.0",
-    "prettier": "^3.2.5",
-    "typescript": "^5.3.3"
+    "@slide-computer/signer": "^3.16.0"
   }
 }

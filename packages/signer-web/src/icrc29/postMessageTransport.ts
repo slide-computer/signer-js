@@ -30,7 +30,8 @@ export interface PostMessageTransportOptions {
   window?: Window;
   /**
    * Reasonable time in milliseconds in which the communication channel needs to be established
-   * @default 10000
+   * TODO: Lower this value once "not available, try again later" error is standardized and implemented
+   * @default 120000
    */
   establishTimeout?: number;
   /**
@@ -83,7 +84,7 @@ export class PostMessageTransport implements Transport {
     this.#options = {
       windowOpenerFeatures: "",
       window: globalThis.window,
-      establishTimeout: 10000,
+      establishTimeout: 120000,
       disconnectTimeout: 2000,
       statusPollingRate: 300,
       crypto: globalThis.crypto,

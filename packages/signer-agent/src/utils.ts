@@ -2,8 +2,6 @@ import {
   type CallRequest,
   Cbor,
   Expiry,
-  type ReadStateOptions,
-  type RequestId,
   type SubmitRequestType,
 } from "@dfinity/agent";
 import { Principal } from "@dfinity/principal";
@@ -29,10 +27,3 @@ export const decodeCallRequest = (contentMap: ArrayBuffer): CallRequest => {
     ingress_expiry: expiry,
   };
 };
-
-export const scheduleAndMakeCall = (params: {
-  canisterId: Principal;
-  sender: Principal;
-  method: string;
-  arg: ArrayBuffer;
-}) => {};

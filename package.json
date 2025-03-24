@@ -14,7 +14,6 @@
       "./packages/signer-extension",
       "./packages/signer-test",
       "./packages/signer-transport-auth-client",
-      "./packages/signer-transport-plug",
       "./packages/signer-transport-stoic"
     ]
   },

@@ -132,12 +132,12 @@ export class AgentChannel implements Channel {
             : undefined;
         const expiration = new Date(
           Date.now() +
-            Number(
-              delegationRequest.params!.maxTimeToLive
-                ? BigInt(delegationRequest.params!.maxTimeToLive) /
-                    BigInt(1_000_000)
-                : BigInt(8) * BigInt(3_600_000),
-            ),
+          Number(
+            delegationRequest.params!.maxTimeToLive
+              ? BigInt(delegationRequest.params!.maxTimeToLive) /
+              BigInt(1_000_000)
+              : BigInt(8) * BigInt(3_600_000),
+          ),
         );
         const signedDelegationChain = await DelegationChain.create(
           identity,
@@ -162,10 +162,10 @@ export class AgentChannel implements Channel {
                   expiration: delegation.expiration.toString(),
                   ...(delegation.targets
                     ? {
-                        targets: delegation.targets.map((target) =>
-                          target.toText(),
-                        ),
-                      }
+                      targets: delegation.targets.map((target) =>
+                        target.toText(),
+                      ),
+                    }
                     : {}),
                 },
                 signature: toBase64(signature),
@@ -225,29 +225,29 @@ export class AgentChannel implements Channel {
         const { pollForResponse, defaultStrategy } = polling;
         const validationActor = batchCallCanisterRequest.params?.validation
           ? Actor.createActor(
-              ({ IDL }) =>
-                IDL.Service({
-                  [batchCallCanisterRequest.params!.validation!.method]:
-                    IDL.Func(
-                      [
-                        IDL.Record({
-                          canister_id: IDL.Principal,
-                          method: IDL.Text,
-                          arg: IDL.Vec(IDL.Nat8),
-                          res: IDL.Vec(IDL.Nat8),
-                          nonce: IDL.Opt(IDL.Vec(IDL.Nat8)),
-                        }),
-                      ],
-                      [IDL.Bool],
-                      [],
-                    ),
-                }),
-              {
-                canisterId:
-                  batchCallCanisterRequest.params?.validation?.canisterId,
-                agent: this.#agent,
-              },
-            )
+            ({ IDL }) =>
+              IDL.Service({
+                [batchCallCanisterRequest.params!.validation!.method]:
+                  IDL.Func(
+                    [
+                      IDL.Record({
+                        canister_id: IDL.Principal,
+                        method: IDL.Text,
+                        arg: IDL.Vec(IDL.Nat8),
+                        res: IDL.Vec(IDL.Nat8),
+                        nonce: IDL.Opt(IDL.Vec(IDL.Nat8)),
+                      }),
+                    ],
+                    [IDL.Bool],
+                    [],
+                  ),
+              }),
+            {
+              canisterId:
+                batchCallCanisterRequest.params?.validation?.canisterId,
+              agent: this.#agent,
+            },
+          )
           : undefined;
         const batchCallCanisterResponse: BatchCallCanisterResponse = {
           id,
@@ -315,7 +315,7 @@ export class AgentChannel implements Channel {
                   if (
                     status.status !== LookupStatus.Found ||
                     new TextDecoder().decode(status.value as ArrayBuffer) !==
-                      "replied" ||
+                    "replied" ||
                     reply.status !== LookupStatus.Found
                   ) {
                     batchFailed = true;
@@ -333,18 +333,24 @@ export class AgentChannel implements Channel {
                     request.method.startsWith("icrc37_")
                   ) {
                     // Built in validation, basically checks if variant with Err is returned
-                    const value = IDL.decode(
-                      [IDL.Variant({ Err: IDL.Reserved })],
-                      reply.value as ArrayBuffer,
-                    );
-                    if ("Err" in value) {
-                      batchFailed = true;
-                      return {
-                        error: {
-                          code: 1002,
-                          message: "Validation failed.",
-                        },
-                      };
+                    try {
+                      const value = IDL.decode(
+                        [IDL.Variant({ Err: IDL.Reserved })],
+                        reply.value as ArrayBuffer
+                      );
+                      if ("Err" in value) {
+                        batchFailed = true;
+                        return {
+                          error: {
+                            code: 1002,
+                            message: "Validation failed.",
+                          },
+                        };
+                      }
+                    }
+                    catch {
+                      // If this return error likely the response is not included Err variant
+                      // so we can assume it's valid
                     }
                   } else if (validationActor) {
                     if (

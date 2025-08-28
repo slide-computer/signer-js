@@ -75,18 +75,12 @@ interface ScheduledCall {
   reject: (error: unknown) => void;
 }
 
-interface Validation {
-  canisterId: Principal;
-  method: string;
-}
-
 export class SignerAgent<
   T extends Pick<
     Signer,
     "callCanister" | "openChannel" | "supportedStandards" | "batchCallCanister"
   > = Signer,
-> implements Agent
-{
+> implements Agent {
   // noinspection JSUnusedLocalSymbols
   static #isInternalConstructing: boolean = false;
   readonly #options: Required<SignerAgentOptions<T>>;
@@ -95,7 +89,7 @@ export class SignerAgent<
   #executeTimeout?: ReturnType<typeof setTimeout>;
   #scheduled: ScheduledCall[][] = [[]];
   #autoBatch: boolean = true;
-  #validation?: Validation;
+  #validationCanisterId?: Principal;
 
   private constructor(options: Required<SignerAgentOptions<T>>) {
     const throwError = !SignerAgent.#isInternalConstructing;
@@ -152,12 +146,12 @@ export class SignerAgent<
 
   async execute() {
     const scheduled = [...this.#scheduled];
-    const validation = this.#validation;
+    const validation = this.#validationCanisterId;
     this.clear();
 
     const pending = scheduled.flat().length;
     if (pending === 0) {
-      this.#validation = undefined;
+      this.#validationCanisterId = undefined;
       return;
     }
 
@@ -200,7 +194,7 @@ export class SignerAgent<
 
   async #executeBatch(
     scheduled: ScheduledCall[][],
-    validation?: Validation,
+    validationCanisterId?: Principal,
   ): Promise<void> {
     await this.#queue.schedule(async () => {
       try {
@@ -209,7 +203,7 @@ export class SignerAgent<
           requests: scheduled.map((entries) =>
             entries.map(({ options }) => options),
           ),
-          validation: validation ?? undefined,
+          validationCanisterId,
         });
         scheduled.forEach((entries, sequenceIndex) =>
           entries.forEach(({ resolve, reject }, requestIndex) => {
@@ -281,7 +275,7 @@ export class SignerAgent<
       options.methodName === requestBody.method_name &&
       compare(options.arg, requestBody.arg) === 0 &&
       this.#options.account.compareTo(Principal.from(requestBody.sender)) ===
-        "eq";
+      "eq";
     if (!contentMapMatchesRequest) {
       throw new SignerAgentError(INVALID_RESPONSE_MESSAGE);
     }
@@ -440,8 +434,8 @@ export class SignerAgent<
     this.#options.account = account;
   }
 
-  replaceValidation(validation?: { canisterId: Principal; method: string }) {
-    this.#validation = validation;
+  replaceValidationCanisterId(validation?: Principal) {
+    this.#validationCanisterId = validation;
   }
 
   /**

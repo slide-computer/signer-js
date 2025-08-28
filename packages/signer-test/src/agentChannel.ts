@@ -13,7 +13,7 @@ import {
   toBase64,
 } from "@slide-computer/signer";
 import { AgentTransportError } from "./agentTransport";
-import { scopes, supportedStandards } from "./constants";
+import { ICRC_114_METHOD_NAME, scopes, supportedStandards } from "./constants";
 import { DelegationChain, DelegationIdentity } from "@dfinity/identity";
 import {
   Actor,
@@ -132,12 +132,12 @@ export class AgentChannel implements Channel {
             : undefined;
         const expiration = new Date(
           Date.now() +
-            Number(
-              delegationRequest.params!.maxTimeToLive
-                ? BigInt(delegationRequest.params!.maxTimeToLive) /
-                    BigInt(1_000_000)
-                : BigInt(8) * BigInt(3_600_000),
-            ),
+          Number(
+            delegationRequest.params!.maxTimeToLive
+              ? BigInt(delegationRequest.params!.maxTimeToLive) /
+              BigInt(1_000_000)
+              : BigInt(8) * BigInt(3_600_000),
+          ),
         );
         const signedDelegationChain = await DelegationChain.create(
           identity,
@@ -162,10 +162,10 @@ export class AgentChannel implements Channel {
                   expiration: delegation.expiration.toString(),
                   ...(delegation.targets
                     ? {
-                        targets: delegation.targets.map((target) =>
-                          target.toText(),
-                        ),
-                      }
+                      targets: delegation.targets.map((target) =>
+                        target.toText(),
+                      ),
+                    }
                     : {}),
                 },
                 signature: toBase64(signature),
@@ -206,7 +206,7 @@ export class AgentChannel implements Channel {
         const { certificate } = await agent.readState(canisterId, {
           paths: [
             [
-              new TextEncoder().encode("request_status"),
+              new TextEncoder().encode("request_status").buffer,
               submitResponse.requestId,
             ],
           ],
@@ -222,32 +222,45 @@ export class AgentChannel implements Channel {
       }
       case "icrc112_batch_call_canister": {
         const batchCallCanisterRequest = request as BatchCallCanisterRequest;
+
+        // if more than 1 request in batch, validation is required
+        if (batchCallCanisterRequest.params!.requests.length > 1 && !batchCallCanisterRequest.params?.validationCanisterId) {
+          return {
+            id,
+            jsonrpc: "2.0",
+            error: {
+              code: 1002,
+              message: "Validation required.",
+            },
+          };
+        }
+
         const { pollForResponse, defaultStrategy } = polling;
-        const validationActor = batchCallCanisterRequest.params?.validation
+        const validationActor = batchCallCanisterRequest.params?.validationCanisterId
           ? Actor.createActor(
-              ({ IDL }) =>
-                IDL.Service({
-                  [batchCallCanisterRequest.params!.validation!.method]:
-                    IDL.Func(
-                      [
-                        IDL.Record({
-                          canister_id: IDL.Principal,
-                          method: IDL.Text,
-                          arg: IDL.Vec(IDL.Nat8),
-                          res: IDL.Vec(IDL.Nat8),
-                          nonce: IDL.Opt(IDL.Vec(IDL.Nat8)),
-                        }),
-                      ],
-                      [IDL.Bool],
-                      [],
-                    ),
-                }),
-              {
-                canisterId:
-                  batchCallCanisterRequest.params?.validation?.canisterId,
-                agent: this.#agent,
-              },
-            )
+            ({ IDL }) =>
+              IDL.Service({
+                [ICRC_114_METHOD_NAME]:
+                  IDL.Func(
+                    [
+                      IDL.Record({
+                        canister_id: IDL.Principal,
+                        method: IDL.Text,
+                        arg: IDL.Vec(IDL.Nat8),
+                        res: IDL.Vec(IDL.Nat8),
+                        nonce: IDL.Opt(IDL.Vec(IDL.Nat8)),
+                      }),
+                    ],
+                    [IDL.Bool],
+                    [],
+                  ),
+              }),
+            {
+              canisterId:
+                batchCallCanisterRequest.params?.validationCanisterId,
+              agent: this.#agent,
+            },
+          )
           : undefined;
         const batchCallCanisterResponse: BatchCallCanisterResponse = {
           id,
@@ -292,7 +305,7 @@ export class AgentChannel implements Channel {
                   const { certificate } = await agent.readState(canisterId, {
                     paths: [
                       [
-                        new TextEncoder().encode("request_status"),
+                        new TextEncoder().encode("request_status").buffer,
                         submitResponse.requestId,
                       ],
                     ],
@@ -315,7 +328,7 @@ export class AgentChannel implements Channel {
                   if (
                     status.status !== LookupStatus.Found ||
                     new TextDecoder().decode(status.value as ArrayBuffer) !==
-                      "replied" ||
+                    "replied" ||
                     reply.status !== LookupStatus.Found
                   ) {
                     batchFailed = true;
@@ -341,15 +354,17 @@ export class AgentChannel implements Channel {
                       batchFailed = true;
                       return {
                         error: {
-                          code: 1002,
+                          code: 1003,
                           message: "Validation failed.",
                         },
                       };
                     }
-                  } else if (validationActor) {
+                  }
+
+                  if (validationActor) {
                     if (
                       !(await validationActor[
-                        batchCallCanisterRequest.params!.validation!.method
+                        ICRC_114_METHOD_NAME
                       ]({
                         canister_id: Principal.fromText(request.canisterId),
                         method: request.method,
@@ -366,14 +381,6 @@ export class AgentChannel implements Channel {
                         },
                       };
                     }
-                  } else {
-                    batchFailed = true;
-                    return {
-                      error: {
-                        code: 1002,
-                        message: "Validation required.",
-                      },
-                    };
                   }
                   return {
                     result: {

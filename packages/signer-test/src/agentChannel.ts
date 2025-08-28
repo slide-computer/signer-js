@@ -206,7 +206,7 @@ export class AgentChannel implements Channel {
         const { certificate } = await agent.readState(canisterId, {
           paths: [
             [
-              new TextEncoder().encode("request_status"),
+              new TextEncoder().encode("request_status").buffer,
               submitResponse.requestId,
             ],
           ],
@@ -292,7 +292,7 @@ export class AgentChannel implements Channel {
                   const { certificate } = await agent.readState(canisterId, {
                     paths: [
                       [
-                        new TextEncoder().encode("request_status"),
+                        new TextEncoder().encode("request_status").buffer,
                         submitResponse.requestId,
                       ],
                     ],

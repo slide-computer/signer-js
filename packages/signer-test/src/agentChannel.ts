@@ -13,7 +13,7 @@ import {
   toBase64,
 } from "@slide-computer/signer";
 import { AgentTransportError } from "./agentTransport";
-import { scopes, supportedStandards } from "./constants";
+import { ICRC_114_METHOD_NAME, scopes, supportedStandards } from "./constants";
 import { DelegationChain, DelegationIdentity } from "@dfinity/identity";
 import {
   Actor,
@@ -223,11 +223,11 @@ export class AgentChannel implements Channel {
       case "icrc112_batch_call_canister": {
         const batchCallCanisterRequest = request as BatchCallCanisterRequest;
         const { pollForResponse, defaultStrategy } = polling;
-        const validationActor = batchCallCanisterRequest.params?.validation
+        const validationActor = batchCallCanisterRequest.params?.validationCanisterId
           ? Actor.createActor(
             ({ IDL }) =>
               IDL.Service({
-                [batchCallCanisterRequest.params!.validation!.method]:
+                [ICRC_114_METHOD_NAME]:
                   IDL.Func(
                     [
                       IDL.Record({
@@ -244,7 +244,7 @@ export class AgentChannel implements Channel {
               }),
             {
               canisterId:
-                batchCallCanisterRequest.params?.validation?.canisterId,
+                batchCallCanisterRequest.params?.validationCanisterId,
               agent: this.#agent,
             },
           )
@@ -355,7 +355,7 @@ export class AgentChannel implements Channel {
                   } else if (validationActor) {
                     if (
                       !(await validationActor[
-                        batchCallCanisterRequest.params!.validation!.method
+                        ICRC_114_METHOD_NAME
                       ]({
                         canister_id: Principal.fromText(request.canisterId),
                         method: request.method,

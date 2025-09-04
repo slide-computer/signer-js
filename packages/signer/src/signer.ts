@@ -363,6 +363,7 @@ export class Signer<T extends Transport = Transport> {
       canisterId: Principal;
       method: string;
       arg: ArrayBuffer;
+      nonce?: ArrayBuffer;
     }[][];
     validationCanisterId?: Principal;
   }): Promise<
@@ -392,6 +393,7 @@ export class Signer<T extends Transport = Transport> {
             canisterId: request.canisterId.toText(),
             method: request.method,
             arg: toBase64(request.arg),
+            nonce: request.nonce ? toBase64(request.nonce) : undefined,
           })),
         ),
         validationCanisterId: params.validationCanisterId?.toText(),

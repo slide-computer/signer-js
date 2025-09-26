@@ -1,5 +1,5 @@
-import type { JsonRequest, JsonResponse } from "../transport";
-import type { PermissionScope } from "../icrc25";
+import type { JsonRequest, JsonResponse } from "../transport.js";
+import type { PermissionScope } from "../icrc25/index.js";
 
 export type CallCanisterPermissionScope =
   PermissionScope<"icrc49_call_canister">;
@@ -14,6 +14,7 @@ export type CallCanisterRequest = JsonRequest<
     sender: string;
     method: string;
     arg: string;
+    nonce?: string;
   }
 >;
 

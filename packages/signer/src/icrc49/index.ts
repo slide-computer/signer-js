@@ -1,1 +1,1 @@
-export * from "./callCanister";
+export * from "./callCanister.js";

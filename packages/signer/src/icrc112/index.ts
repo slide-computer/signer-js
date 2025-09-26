@@ -1,1 +1,1 @@
-export * from "./batchCallCanister";
+export * from "./batchCallCanister.js";

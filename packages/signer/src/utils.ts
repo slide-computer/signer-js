@@ -1,17 +1,16 @@
 const ENCODE_CHUNK_SIZE = 100000;
 
-export const fromBase64 = (base64: string): ArrayBuffer => {
+export const fromBase64 = (base64: string): Uint8Array => {
   if (typeof globalThis.Buffer !== "undefined") {
-    return globalThis.Buffer.from(base64, "base64").buffer;
+    return globalThis.Buffer.from(base64, "base64");
   }
   if (typeof globalThis.atob !== "undefined") {
-    return Uint8Array.from(globalThis.atob(base64), (m) => m.charCodeAt(0))
-      .buffer;
+    return Uint8Array.from(globalThis.atob(base64), (m) => m.charCodeAt(0));
   }
   throw Error("Could not decode base64 string");
 };
 
-export const toBase64 = (bytes: ArrayBuffer): string => {
+export const toBase64 = (bytes: Uint8Array): string => {
   if (typeof globalThis.Buffer !== "undefined") {
     return globalThis.Buffer.from(bytes).toString("base64");
   }

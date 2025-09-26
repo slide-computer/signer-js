@@ -1,5 +1,5 @@
-import type { PermissionScope } from "../icrc25";
-import type { JsonRequest, JsonResponse } from "../transport";
+import type { PermissionScope } from "../icrc25/index.js";
+import type { JsonRequest, JsonResponse } from "../transport.js";
 
 export type AccountsPermissionScope = PermissionScope<"icrc27_accounts">;
 

@@ -1,3 +1,3 @@
-export * from "./supportedStandards";
-export * from "./requestPermissions";
-export * from "./permissions";
+export * from "./supportedStandards.js";
+export * from "./requestPermissions.js";
+export * from "./permissions.js";

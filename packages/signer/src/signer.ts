@@ -1,14 +1,14 @@
-import { Principal } from "@dfinity/principal";
-import { Delegation, DelegationChain } from "@dfinity/identity";
-import { type Signature } from "@dfinity/agent";
-import type { JsonValue } from "@dfinity/candid";
+import { Principal } from "@icp-sdk/core/principal";
+import { Delegation, DelegationChain } from "@icp-sdk/core/identity";
+import { type Signature } from "@icp-sdk/core/agent";
+import type { JsonValue } from "@icp-sdk/core/candid";
 import type {
   Channel,
   JsonError,
   JsonRequest,
   JsonResponse,
   Transport,
-} from "./transport";
+} from "./transport.js";
 import type {
   PermissionScope,
   PermissionsRequest,
@@ -19,29 +19,29 @@ import type {
   SupportedStandard,
   SupportedStandardsRequest,
   SupportedStandardsResponse,
-} from "./icrc25";
+} from "./icrc25/index.js";
 import type {
   AccountsPermissionScope,
   AccountsRequest,
   AccountsResponse,
-} from "./icrc27";
+} from "./icrc27/index.js";
 import type {
   DelegationPermissionScope,
   DelegationRequest,
   DelegationResponse,
-} from "./icrc34";
+} from "./icrc34/index.js";
 import type {
   CallCanisterPermissionScope,
   CallCanisterRequest,
   CallCanisterResponse,
-} from "./icrc49";
-import { NETWORK_ERROR } from "./errors";
-import { fromBase64, toBase64 } from "./utils";
+} from "./icrc49/index.js";
+import { NETWORK_ERROR } from "./errors.js";
+import { fromBase64, toBase64 } from "./utils.js";
 import type {
   BatchCallCanisterPermissionScope,
   BatchCallCanisterRequest,
   BatchCallCanisterResponse,
-} from "./icrc112";
+} from "./icrc112/index.js";
 
 export class SignerError extends Error {
   public code: number;
@@ -295,7 +295,7 @@ export class Signer<T extends Transport = Transport> {
   }
 
   async delegation(params: {
-    publicKey: ArrayBuffer;
+    publicKey: Uint8Array;
     targets?: Principal[];
     maxTimeToLive?: bigint;
   }): Promise<DelegationChain> {
@@ -335,8 +335,9 @@ export class Signer<T extends Transport = Transport> {
     canisterId: Principal;
     sender: Principal;
     method: string;
-    arg: ArrayBuffer;
-  }): Promise<{ contentMap: ArrayBuffer; certificate: ArrayBuffer }> {
+    arg: Uint8Array;
+    nonce?: Uint8Array;
+  }): Promise<{ contentMap: Uint8Array; certificate: Uint8Array }> {
     const response = await this.sendRequest<
       CallCanisterRequest,
       CallCanisterResponse
@@ -349,6 +350,7 @@ export class Signer<T extends Transport = Transport> {
         sender: params.sender.toText(),
         method: params.method,
         arg: toBase64(params.arg),
+        nonce: params.nonce ? toBase64(params.nonce) : undefined,
       },
     });
     const result = unwrapResponse(response);
@@ -359,24 +361,20 @@ export class Signer<T extends Transport = Transport> {
 
   async batchCallCanister(params: {
     sender: Principal;
+    validationCanisterId?: Principal;
     requests: {
       canisterId: Principal;
       method: string;
-      arg: ArrayBuffer;
+      arg: Uint8Array;
+      nonce?: Uint8Array;
     }[][];
-    validation?: { canisterId: Principal; method: string };
   }): Promise<
-    (
-      | {
-          result: {
-            contentMap: ArrayBuffer;
-            certificate: ArrayBuffer;
-          };
-        }
-      | {
-          error: JsonError;
-        }
-    )[][]
+    {
+      result: {
+        contentMap: Uint8Array;
+        certificate: Uint8Array;
+      };
+    }[][]
   > {
     const response = await this.sendRequest<
       BatchCallCanisterRequest,
@@ -387,19 +385,15 @@ export class Signer<T extends Transport = Transport> {
       method: "icrc112_batch_call_canister",
       params: {
         sender: params.sender.toText(),
+        validationCanisterId: params.validationCanisterId?.toText(),
         requests: params.requests.map((requests) =>
           requests.map((request) => ({
             canisterId: request.canisterId.toText(),
             method: request.method,
             arg: toBase64(request.arg),
+            nonce: request.nonce ? toBase64(request.nonce) : undefined,
           })),
         ),
-        validation: params.validation
-          ? {
-              canisterId: params.validation.canisterId.toText(),
-              method: params.validation.method,
-            }
-          : undefined,
       },
     });
     const result = unwrapResponse(response);
@@ -412,18 +406,16 @@ export class Signer<T extends Transport = Transport> {
       throw new SignerError({
         code: NETWORK_ERROR,
         message:
-          "Invalid batch call canister response, responses structure does not match request structure",
+          "Invalid batch call canister response, structure does not match request structure",
       });
     }
     return result.responses.map((responses) =>
-      responses.map((response) => {
-        if ("result" in response) {
-          const contentMap = fromBase64(response.result.contentMap);
-          const certificate = fromBase64(response.result.certificate);
-          return { result: { contentMap, certificate } };
-        }
-        return response;
-      }),
+      responses.map((response) => ({
+        result: {
+          contentMap: fromBase64(response.contentMap),
+          certificate: fromBase64(response.certificate),
+        },
+      })),
     );
   }
 }

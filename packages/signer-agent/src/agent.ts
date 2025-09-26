@@ -66,11 +66,11 @@ interface ScheduledCall {
   options: {
     canisterId: Principal;
     method: string;
-    arg: ArrayBuffer;
+    arg: Uint8Array;
   };
   resolve: (response: {
-    contentMap: ArrayBuffer;
-    certificate: ArrayBuffer;
+    contentMap: Uint8Array;
+    certificate: Uint8Array;
   }) => void;
   reject: (error: unknown) => void;
 }
@@ -240,7 +240,7 @@ export class SignerAgent<
     canisterId: Principal | string,
     options: {
       methodName: string;
-      arg: ArrayBuffer;
+      arg: Uint8Array;
       effectiveCanisterId?: Principal | string;
     },
   ): Promise<SubmitResponse> {

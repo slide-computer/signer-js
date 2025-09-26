@@ -19,23 +19,20 @@ export type BatchCallCanisterRequest = JsonRequest<
       arg: string;
       nonce?: string;
     }[][];
-    validation?: {
-      canisterId: string;
-      method: string;
-    };
+    validationCanisterId?: string;
   }
 >;
 
 export type BatchCallCanisterResponse = JsonResponse<{
   responses: (
     | {
-        result: {
-          contentMap: string;
-          certificate: string;
-        };
-      }
+      result: {
+        contentMap: string;
+        certificate: string;
+      };
+    }
     | {
-        error: JsonError;
-      }
+      error: JsonError;
+    }
   )[][];
 }>;

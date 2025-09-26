@@ -145,7 +145,7 @@ export class Signer<T extends Transport = Transport> {
     // Establish a new transport channel
     const channel = this.#options.transport.establishChannel();
     // Indicate that transport channel is being established
-    this.#establishingChannel = channel.then(() => {}).catch(() => {});
+    this.#establishingChannel = channel.then(() => { }).catch(() => { });
     // Clear previous transport channel
     this.#channel = undefined;
     // Assign transport channel once established
@@ -363,19 +363,20 @@ export class Signer<T extends Transport = Transport> {
       canisterId: Principal;
       method: string;
       arg: ArrayBuffer;
+      nonce?: ArrayBuffer;
     }[][];
-    validation?: { canisterId: Principal; method: string };
+    validationCanisterId?: Principal;
   }): Promise<
     (
       | {
-          result: {
-            contentMap: ArrayBuffer;
-            certificate: ArrayBuffer;
-          };
-        }
+        result: {
+          contentMap: ArrayBuffer;
+          certificate: ArrayBuffer;
+        };
+      }
       | {
-          error: JsonError;
-        }
+        error: JsonError;
+      }
     )[][]
   > {
     const response = await this.sendRequest<
@@ -392,14 +393,10 @@ export class Signer<T extends Transport = Transport> {
             canisterId: request.canisterId.toText(),
             method: request.method,
             arg: toBase64(request.arg),
+            nonce: request.nonce ? toBase64(request.nonce) : undefined,
           })),
         ),
-        validation: params.validation
-          ? {
-              canisterId: params.validation.canisterId.toText(),
-              method: params.validation.method,
-            }
-          : undefined,
+        validationCanisterId: params.validationCanisterId?.toText(),
       },
     });
     const result = unwrapResponse(response);

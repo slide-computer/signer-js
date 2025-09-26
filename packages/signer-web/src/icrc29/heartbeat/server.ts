@@ -4,10 +4,10 @@ export interface HeartbeatServerOptions {
   /**
    * Callback when first heartbeat has been received
    */
-  onEstablish: (origin: string, source: MessageEventSource) => void;
+  onEstablish: (origin: string, source: WindowProxy) => void;
   /**
    * Reasonable time in milliseconds in which the communication channel needs to be established
-   * @default 2000
+   * @default 10000
    */
   establishTimeout?: number;
   /**
@@ -53,7 +53,7 @@ export class HeartbeatServer {
       listener();
       clearTimeout(timeout);
 
-      this.#options.onEstablish(request.origin, request.source);
+      this.#options.onEstablish(request.origin, request.source as WindowProxy);
       this.#maintain(request.origin, request.source);
     });
 
@@ -110,6 +110,9 @@ export class HeartbeatServer {
   }
 
   #sendReadyResponse(id: string | number, source: MessageEventSource): void {
-    source.postMessage({ jsonrpc: "2.0", id, result: "ready" });
+    (source as WindowProxy).postMessage(
+      { jsonrpc: "2.0", id, result: "ready" },
+      "*",
+    );
   }
 }

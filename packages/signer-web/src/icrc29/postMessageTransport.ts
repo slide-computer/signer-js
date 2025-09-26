@@ -103,7 +103,7 @@ export class PostMessageTransport implements Transport {
     }
     const signerWindow = this.#options.window.open(
       this.#options.url,
-      "signerWindow",
+      `${new URL(this.#options.url).origin}-signer-window`,
       this.#options.windowOpenerFeatures,
     );
     if (!signerWindow) {

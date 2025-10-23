@@ -2,6 +2,15 @@ import { isJsonRpcRequest, type JsonRequest } from "@slide-computer/signer";
 
 export interface HeartbeatServerOptions {
   /**
+   * The initial server status to return to the client
+   * @default "ready"
+   */
+  status?: "pending" | "ready";
+  /**
+   * The allowed origin that the communication channel can be established with, recommended for secure re-establishment
+   */
+  allowedOrigin?: string | null;
+  /**
    * Callback when first heartbeat has been received
    */
   onEstablish: (origin: string, source: WindowProxy) => void;
@@ -35,6 +44,8 @@ export class HeartbeatServer {
 
   constructor(options: HeartbeatServerOptions) {
     this.#options = {
+      status: "ready",
+      allowedOrigin: null,
       establishTimeout: 10000,
       disconnectTimeout: 2000,
       window: globalThis.window,
@@ -44,16 +55,21 @@ export class HeartbeatServer {
     this.#establish();
   }
 
+  changeStatus(status: "pending" | "ready"): void {
+    this.#options.status = status;
+  }
+
   #establish(): void {
     // Establish communication channel if a request is received
     const listener = this.#receiveStatusRequest((request) => {
-      if (!request.source) {
+      if (!request.source || !request.data.id) {
         return;
       }
       listener();
       clearTimeout(timeout);
 
       this.#options.onEstablish(request.origin, request.source as WindowProxy);
+      this.#sendStatusResponse(request.data.id, request.origin, request.source);
       this.#maintain(request.origin, request.source);
     });
 
@@ -89,7 +105,11 @@ export class HeartbeatServer {
         request.data.id !== undefined
       ) {
         resetTimeout();
-        this.#sendReadyResponse(request.data.id, request.source);
+        this.#sendStatusResponse(
+          request.data.id,
+          request.origin,
+          request.source,
+        );
       }
     });
   }
@@ -100,7 +120,9 @@ export class HeartbeatServer {
     const listener = (event: MessageEvent) => {
       if (
         isJsonRpcRequest(event.data) &&
-        event.data.method === "icrc29_status"
+        event.data.method === "icrc29_status" &&
+        (!this.#options.allowedOrigin ||
+          this.#options.allowedOrigin === event.origin)
       ) {
         handler(event);
       }
@@ -109,10 +131,14 @@ export class HeartbeatServer {
     return () => this.#options.window.removeEventListener("message", listener);
   }
 
-  #sendReadyResponse(id: string | number, source: MessageEventSource): void {
+  #sendStatusResponse(
+    id: string | number,
+    origin: string,
+    source: MessageEventSource,
+  ): void {
     (source as WindowProxy).postMessage(
-      { jsonrpc: "2.0", id, result: "ready" },
-      "*",
+      { jsonrpc: "2.0", id, result: this.#options.status },
+      origin,
     );
   }
 }

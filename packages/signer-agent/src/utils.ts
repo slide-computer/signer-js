@@ -2,10 +2,10 @@ import {
   type CallRequest,
   Cbor,
   Expiry,
+  JSON_KEY_EXPIRY,
   type SubmitRequestType,
-} from "@dfinity/agent";
-import { Principal } from "@dfinity/principal";
-import { BigNumber } from "bignumber.js";
+} from "@icp-sdk/core/agent";
+import { Principal } from "@icp-sdk/core/principal";
 
 type DecodedCallRequest = Record<string, any> & {
   request_type: SubmitRequestType.Call;
@@ -13,17 +13,17 @@ type DecodedCallRequest = Record<string, any> & {
   method_name: string;
   arg: Uint8Array;
   sender: Uint8Array;
-  ingress_expiry: BigNumber;
+  ingress_expiry: BigInt;
 };
 
-export const decodeCallRequest = (contentMap: ArrayBuffer): CallRequest => {
+export const decodeCallRequest = (contentMap: Uint8Array): CallRequest => {
   const decoded = Cbor.decode<DecodedCallRequest>(contentMap);
-  const expiry = new Expiry(0);
-  // @ts-ignore Expiry class currently has no method to create instance from value
-  expiry._value = BigInt(decoded.ingress_expiry.toString(10));
+  const expiry = Expiry.fromDeltaInMilliseconds(0);
+  const json = expiry.toJSON();
+  json[JSON_KEY_EXPIRY] = decoded.ingress_expiry.toString(10);
   return {
     ...decoded,
     canister_id: Principal.from(decoded.canister_id),
-    ingress_expiry: expiry,
+    ingress_expiry: Expiry.fromJSON(JSON.stringify(json)),
   };
 };

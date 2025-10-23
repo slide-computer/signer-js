@@ -5,8 +5,7 @@
     "composite": true,
     "outDir": "./lib/esm",
     "paths": {
-      "@slide-computer/signer": ["../signer"],
-      "@slide-computer/signer-storage": ["../signer-storage"]
+      "@slide-computer/signer": ["../signer"]
     },
     "rootDir": "./src"
   },
@@ -14,5 +13,5 @@
     "types/*",
     "src/**/*"
   ],
-  "references": [{ "path": "../signer" }, { "path": "../signer-storage" }]
+  "references": [{ "path": "../signer" }]
 }

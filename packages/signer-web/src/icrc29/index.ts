@@ -1,3 +1,3 @@
-export * from "./postMessageTransport";
-export * from "./postMessageChannel";
-export * from "./heartbeat";
+export * from "./postMessageTransport.js";
+export * from "./postMessageChannel.js";
+export * from "./heartbeat/index.js";

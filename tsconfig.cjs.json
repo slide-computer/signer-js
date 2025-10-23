@@ -1,8 +1,0 @@
-{
-  "extends": ["./tsconfig.json", "@tsconfig/node18/tsconfig.json"],
-  "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "nodenext",
-    "verbatimModuleSyntax": false
-  }
-}

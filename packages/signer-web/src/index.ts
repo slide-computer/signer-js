@@ -1,2 +1,2 @@
-export * from "./icrc29";
-export * from "./utils";
+export * from "./icrc29/index.js";
+export * from "./utils.js";

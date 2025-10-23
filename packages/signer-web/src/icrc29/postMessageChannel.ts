@@ -4,7 +4,7 @@ import {
   type JsonRequest,
   type JsonResponse,
 } from "@slide-computer/signer";
-import { PostMessageTransportError } from "./postMessageTransport";
+import { PostMessageTransportError } from "./postMessageTransport.js";
 
 export interface PostMessageChannelOptions {
   /**
@@ -15,6 +15,10 @@ export interface PostMessageChannelOptions {
    * Signer origin obtained when communication channel was established
    */
   signerOrigin: string;
+  /**
+   * Signer status obtained when communication channel was established
+   */
+  signerStatus?: "pending" | "ready";
   /**
    * Relying party window, used to listen for incoming message events
    * @default globalThis.window
@@ -31,9 +35,11 @@ export class PostMessageChannel implements Channel {
   readonly #closeListeners = new Set<() => void>();
   readonly #options: Required<PostMessageChannelOptions>;
   #closed = false;
+  #pendingQueue: JsonRequest[] = [];
 
   constructor(options: PostMessageChannelOptions) {
     this.#options = {
+      signerStatus: "ready",
       window: globalThis.window,
       manageFocus: true,
       ...options,
@@ -78,6 +84,11 @@ export class PostMessageChannel implements Channel {
       throw new PostMessageTransportError("Communication channel is closed");
     }
 
+    if (this.#options.signerStatus === "pending") {
+      this.#pendingQueue.push(request);
+      return;
+    }
+
     this.#options.signerWindow.postMessage(request, this.#options.signerOrigin);
 
     if (this.#options.manageFocus) {
@@ -98,5 +109,20 @@ export class PostMessageChannel implements Channel {
     }
 
     this.#closeListeners.forEach((listener) => listener());
+  }
+
+  changeStatus(status: "pending" | "ready") {
+    this.#options.signerStatus = status;
+
+    if (status === "ready") {
+      const requests = this.#pendingQueue;
+      this.#pendingQueue = [];
+      requests.forEach((request, index) => {
+        this.#options.signerWindow.postMessage(
+          request,
+          this.#options.signerOrigin,
+        );
+      });
+    }
   }
 }

@@ -280,7 +280,7 @@ export class Signer<T extends Transport = Transport> {
   }
 
   async accounts(): Promise<
-    Array<{ owner: Principal; subaccount?: ArrayBuffer }>
+    Array<{ owner: Principal; subaccount?: Uint8Array }>
   > {
     const response = await this.sendRequest<AccountsRequest, AccountsResponse>({
       id: this.#options.crypto.randomUUID(),

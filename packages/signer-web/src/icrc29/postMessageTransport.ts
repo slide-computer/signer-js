@@ -1,7 +1,7 @@
 import { type Transport } from "@slide-computer/signer";
-import { PostMessageChannel } from "./postMessageChannel";
-import { urlIsSecureContext } from "../utils";
-import { HeartbeatClient } from "./heartbeat";
+import { PostMessageChannel } from "./postMessageChannel.js";
+import { urlIsSecureContext } from "../utils.js";
+import { HeartbeatClient } from "./heartbeat/index.js";
 
 const NON_CLICK_ESTABLISHMENT_LINK =
   "https://github.com/slide-computer/signer-js/blob/main/packages/signer-web/README.md#channels-must-be-established-in-a-click-handler";
@@ -35,6 +35,11 @@ export interface PostMessageTransportOptions {
    */
   establishTimeout?: number;
   /**
+   * Reasonable time in milliseconds in which the communication channel can be pending
+   * @default 300000
+   */
+  pendingTimeout?: number;
+  /**
    * Time in milliseconds of not receiving heartbeat responses after which the communication channel is disconnected
    * @default 2000
    */
@@ -59,6 +64,11 @@ export interface PostMessageTransportOptions {
    * @default true
    */
   closeOnEstablishTimeout?: boolean;
+  /**
+   * Close signer window on communication channel pending timeout
+   * @default true
+   */
+  closeOnPendingTimeout?: boolean;
   /**
    * Detect attempts to establish channel outside of click handler
    * @default true
@@ -85,11 +95,13 @@ export class PostMessageTransport implements Transport {
       windowOpenerFeatures: "",
       window: globalThis.window,
       establishTimeout: 120000,
+      pendingTimeout: 300000,
       disconnectTimeout: 2000,
       statusPollingRate: 300,
       crypto: globalThis.crypto,
       manageFocus: true,
       closeOnEstablishTimeout: true,
+      closeOnPendingTimeout: true,
       detectNonClickEstablishment: true,
       ...options,
     };
@@ -115,11 +127,12 @@ export class PostMessageTransport implements Transport {
       new HeartbeatClient({
         ...this.#options,
         signerWindow,
-        onEstablish: (origin) => {
+        onEstablish: (origin, status) => {
           channel = new PostMessageChannel({
             ...this.#options,
             signerOrigin: origin,
             signerWindow: signerWindow,
+            signerStatus: status,
           });
           resolve(channel);
         },
@@ -133,7 +146,18 @@ export class PostMessageTransport implements Transport {
             ),
           );
         },
+        onPendingTimeout: () => {
+          if (this.#options.closeOnPendingTimeout) {
+            signerWindow.close();
+          }
+          reject(
+            new PostMessageTransportError(
+              "Communication channel was pending for too long",
+            ),
+          );
+        },
         onDisconnect: () => channel.close(),
+        onStatusChange: (status) => channel.changeStatus(status),
       });
     });
   }

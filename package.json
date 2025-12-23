@@ -5,6 +5,9 @@
   "description": "Initiate transactions and authenticate with signers on the Internet Computer",
   "workspaces": {
     "packages": [
+      "./packages/signer",
+      "./packages/signer-agent",
+      "./packages/signer-web",
       "./packages/signer-extension"
     ]
   },

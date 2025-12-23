@@ -1,3 +1,3 @@
-export * from "./browserExtensionTransport";
-export * from "./browserExtensionChannel";
-export * from "./types";
+export * from "./browserExtensionTransport.js";
+export * from "./browserExtensionChannel.js";
+export * from "./types.js";

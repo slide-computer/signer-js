@@ -1,6 +1,6 @@
 import type { PermissionScope } from "../icrc25/index.js";
 import type { JsonRequest, JsonResponse } from "../transport.js";
-import { Principal } from "@dfinity/principal";
+import { Principal } from "@icp-sdk/core/principal";
 
 export type DelegationPermissionScope = PermissionScope<"icrc34_delegation"> & {
   targets?: string[];

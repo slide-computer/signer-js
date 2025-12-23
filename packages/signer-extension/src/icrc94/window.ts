@@ -2,7 +2,7 @@ import type {
   AnnounceProviderEvent,
   RequestProviderEvent,
   UnexpectedlyClosedEvent,
-} from "./types";
+} from "./types.js";
 
 export {};
 

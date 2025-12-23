@@ -4,8 +4,8 @@ import {
   type JsonRequest,
   type JsonResponse,
 } from "@slide-computer/signer";
-import type { ProviderDetail } from "./types";
-import { BrowserExtensionTransportError } from "./browserExtensionTransport";
+import type { ProviderDetail } from "./types.js";
+import { BrowserExtensionTransportError } from "./browserExtensionTransport.js";
 
 export interface BrowserExtensionChannelOptions {
   /**

@@ -1,1 +1,1 @@
-export * from "./icrc94";
+export * from "./icrc94/index.js";

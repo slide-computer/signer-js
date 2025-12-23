@@ -1,13 +1,11 @@
 {
   "name": "@slide-computer/signer",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "private": true,
   "description": "Initiate transactions and authenticate with signers on the Internet Computer",
   "workspaces": {
     "packages": [
-      "./packages/signer",
-      "./packages/signer-agent",
-      "./packages/signer-web"
+      "./packages/signer-extension"
     ]
   },
   "scripts": {

@@ -15,6 +15,7 @@ import {
   requestIdOf,
   SubmitRequestType,
   type SubmitResponse,
+  type CallOptions,
 } from "@icp-sdk/core/agent";
 import {
   type JsonObject,
@@ -22,7 +23,7 @@ import {
   lebDecode,
   PipeArrayBuffer,
 } from "@icp-sdk/core/candid";
-import { Principal } from "@dfinity/principal";
+import { Principal } from "@icp-sdk/core/principal";
 import { type Signer, toBase64 } from "@slide-computer/signer";
 import { decodeCallRequest } from "./utils.js";
 import { Queue } from "./queue.js";
@@ -67,12 +68,8 @@ export class SignerAgentError extends Error {
 }
 
 interface ScheduledCall {
-  options: {
-    canisterId: Principal;
-    method: string;
-    arg: Uint8Array;
-    nonce?: Uint8Array;
-  };
+  canisterId: Principal;
+  fields: CallOptions;
   resolve: (response: {
     contentMap: Uint8Array;
     certificate: Uint8Array;
@@ -182,12 +179,14 @@ export class SignerAgent<
 
   async #executeQueue(scheduled: ScheduledCall[][]): Promise<void> {
     await Promise.all(
-      scheduled.flat().map(({ options, resolve, reject }) =>
+      scheduled.flat().map(({ canisterId, fields, resolve, reject }) =>
         this.#queue.schedule(async () => {
           try {
             const response = await this.signer.callCanister({
+              canisterId,
               sender: this.#options.account,
-              ...options,
+              method: fields.methodName,
+              arg: fields.arg,
             });
             resolve(response);
           } catch (error) {
@@ -207,7 +206,11 @@ export class SignerAgent<
         const responses = await this.signer.batchCallCanister({
           sender: this.#options.account,
           requests: scheduled.map((entries) =>
-            entries.map(({ options }) => options),
+            entries.map(({ canisterId, fields }) => ({
+              canisterId,
+              method: fields.methodName,
+              arg: fields.arg,
+            })),
           ),
           validationCanisterId: validationCanisterId ?? undefined,
         });
@@ -226,11 +229,7 @@ export class SignerAgent<
 
   async call(
     canisterId: Principal | string,
-    options: {
-      methodName: string;
-      arg: Uint8Array;
-      effectiveCanisterId?: Principal | string;
-    },
+    fields: CallOptions,
   ): Promise<SubmitResponse> {
     // Make sure canisterId is a principal
     canisterId = Principal.from(canisterId);
@@ -245,11 +244,8 @@ export class SignerAgent<
     >((resolve, reject) => {
       clearTimeout(this.#executeTimeout);
       this.#scheduled.slice(-1)[0].push({
-        options: {
-          canisterId,
-          method: options.methodName,
-          arg: options.arg,
-        },
+        canisterId,
+        fields,
         resolve,
         reject,
       });
@@ -266,8 +262,8 @@ export class SignerAgent<
     const contentMapMatchesRequest =
       SubmitRequestType.Call === requestBody.request_type &&
       canisterId.compareTo(requestBody.canister_id) === "eq" &&
-      options.methodName === requestBody.method_name &&
-      compare(options.arg, requestBody.arg) === 0 &&
+      fields.methodName === requestBody.method_name &&
+      compare(fields.arg, requestBody.arg) === 0 &&
       this.#options.account.compareTo(Principal.from(requestBody.sender)) ===
         "eq";
     if (!contentMapMatchesRequest) {
@@ -279,7 +275,7 @@ export class SignerAgent<
     const certificate = await Certificate.create({
       certificate: response.certificate,
       rootKey: this.rootKey,
-      canisterId,
+      principal: { canisterId },
       maxAgeInMinutes: MAX_AGE_IN_MINUTES,
     }).catch(() => {
       throw new SignerAgentError(INVALID_RESPONSE_MESSAGE);
@@ -340,7 +336,11 @@ export class SignerAgent<
     canisterId = Principal.from(canisterId);
 
     // Upgrade query request to a call sent through signer
-    const submitResponse = await this.call(canisterId, options);
+    const submitResponse = await this.call(canisterId, {
+      methodName: options.methodName,
+      arg: options.arg,
+      effectiveCanisterId: canisterId,
+    });
     const readStateResponse = await this.readState(canisterId, {
       paths: [
         [new TextEncoder().encode("request_status"), submitResponse.requestId],
@@ -349,7 +349,8 @@ export class SignerAgent<
     const certificate = await Certificate.create({
       certificate: readStateResponse.certificate,
       rootKey: this.rootKey,
-      canisterId,
+      principal: { canisterId },
+      maxAgeInMinutes: MAX_AGE_IN_MINUTES,
     });
     const status = certificate.lookup_path([
       "request_status",

@@ -2,8 +2,8 @@ import { type Transport } from "@slide-computer/signer";
 import {
   BrowserExtensionChannel,
   type BrowserExtensionChannelOptions,
-} from "./browserExtensionChannel";
-import type { ProviderDetail } from "./types";
+} from "./browserExtensionChannel.js";
+import type { ProviderDetail } from "./types.js";
 
 export class BrowserExtensionTransportError extends Error {
   constructor(message: string) {

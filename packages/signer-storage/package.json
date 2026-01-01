@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-storage",
-  "version": "3.20.0",
+  "version": "4.1.0",
   "author": "Slide",
   "license": "MIT",
   "description": "Storage implementation for signer library on the Internet Computer",
@@ -20,29 +20,29 @@
     "dfinity",
     "signer",
     "wallet",
-    "actor",
-    "dfx",
-    "canister",
-    "candid",
-    "motoko",
+    "storage",
     "javascript",
     "typescript",
     "blockchain",
-    "crypto",
-    "distributed",
-    "api",
-    "sdk"
+    "crypto"
   ],
-  "main": "./lib/cjs/index",
-  "module": "./lib/esm/index",
-  "unpkg": "./lib/esm/index",
-  "scripts": {
-    "build": "tsc -b && tsc -p tsconfig-cjs.json"
+  "types": "./lib/esm/index.d.ts",
+  "exports": {
+    "types": "./lib/esm/index.d.ts",
+    "import": "./lib/esm/index.js",
+    "default": "./lib/esm/index.js"
   },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "type": "module",
   "peerDependencies": {
-    "@dfinity/identity": "^2.3.0"
+    "@icp-sdk/core": "^5.0.0"
   },
   "dependencies": {
-    "idb-keyval": "^6.2.1"
+    "idb-keyval": "^6.2.2"
+  },
+  "devDependencies": {
+    "@icp-sdk/core": "^5.0.0"
   }
 }

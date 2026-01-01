@@ -1,5 +1,5 @@
-import { ECDSAKeyIdentity, Ed25519KeyIdentity } from "@dfinity/identity";
-import type { SignerStorage } from "./storage";
+import { ECDSAKeyIdentity, Ed25519KeyIdentity } from "@icp-sdk/core/identity";
+import type { SignerStorage } from "./storage.js";
 
 export const getIdentity = async (key: string, storage: SignerStorage) => {
   const value = await storage.get(`identity-${key}`);

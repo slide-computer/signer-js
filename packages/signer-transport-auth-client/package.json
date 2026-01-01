@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-transport-auth-client",
-  "version": "3.20.0",
+  "version": "4.1.0",
   "author": "Slide",
   "license": "MIT",
   "description": "JavaScript and TypeScript library to communicate with Internet Identity on the Internet Computer",
@@ -33,16 +33,24 @@
     "api",
     "sdk"
   ],
-  "main": "./lib/cjs/index",
-  "module": "./lib/esm/index",
-  "unpkg": "./lib/esm/index",
-  "scripts": {
-    "build": "tsc -b && tsc -p tsconfig-cjs.json"
+  "types": "./lib/esm/index.d.ts",
+  "exports": {
+    "types": "./lib/esm/index.d.ts",
+    "import": "./lib/esm/index.js",
+    "default": "./lib/esm/index.js"
   },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "type": "module",
   "peerDependencies": {
     "@dfinity/auth-client": "^2.3.0",
     "@dfinity/identity": "^2.3.0",
-    "@dfinity/principal": "^2.3.0",
-    "@slide-computer/signer": "^3.20.0"
+    "@slide-computer/signer": "^4.1.0"
+  },
+  "devDependencies": {
+    "@dfinity/auth-client": "^2.3.0",
+    "@dfinity/identity": "^2.3.0",
+    "@slide-computer/signer": "^4.1.0"
   }
 }

@@ -1,5 +1,5 @@
-import type { AuthClient, AuthClientLoginOptions } from "@dfinity/auth-client";
-import { DelegationIdentity, isDelegationValid } from "@dfinity/identity";
+import type { AuthClient, AuthClientLoginOptions } from "@icp-sdk/auth/client";
+import { DelegationIdentity, isDelegationValid } from "@icp-sdk/core/identity";
 import type { Connection } from "@slide-computer/signer";
 import { AuthClientTransportError } from "./authClientTransport.js";
 

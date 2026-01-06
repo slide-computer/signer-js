@@ -1,12 +1,11 @@
-import type { AuthClient } from "@dfinity/auth-client";
-import type { DelegationIdentity } from "@dfinity/identity";
+import type { AuthClient } from "@icp-sdk/auth/client";
+import type { DelegationIdentity } from "@icp-sdk/core/identity";
 import {
   type Channel,
   type Connection,
   type JsonRequest,
   type JsonResponse,
   NOT_SUPPORTED_ERROR,
-  toBase64,
 } from "@slide-computer/signer";
 import { AuthClientTransportError } from "./authClientTransport.js";
 import { scopes, supportedStandards } from "./constants.js";
@@ -106,11 +105,11 @@ export class AuthClientChannel implements Channel {
           id: request.id,
           jsonrpc: "2.0",
           result: {
-            publicKey: toBase64(new Uint8Array(delegation.publicKey)),
+            publicKey: new Uint8Array(delegation.publicKey).toBase64(),
             signerDelegation: delegation.delegations.map(
               ({ delegation, signature }) => ({
                 delegation: {
-                  pubkey: toBase64(new Uint8Array(delegation.pubkey)),
+                  pubkey: new Uint8Array(delegation.pubkey).toBase64(),
                   expiration: delegation.expiration.toString(),
                   ...(delegation.targets
                     ? {
@@ -120,7 +119,7 @@ export class AuthClientChannel implements Channel {
                       }
                     : {}),
                 },
-                signature: toBase64(new Uint8Array(signature)),
+                signature: new Uint8Array(signature).toBase64(),
               }),
             ),
           },

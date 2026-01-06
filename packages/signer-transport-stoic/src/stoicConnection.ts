@@ -18,7 +18,6 @@ import {
 } from "@slide-computer/signer-storage";
 import { requestIdOf, SignIdentity } from "@icp-sdk/core/agent";
 import type { PartialIdentity } from "@icp-sdk/core/identity";
-import { fromHex, toHex } from "./utils.js";
 import { Principal } from "@icp-sdk/core/principal";
 
 const ECDSA_KEY_LABEL = "ECDSA";
@@ -166,12 +165,12 @@ export class StoicConnection implements Connection {
           ["sign", "verify"],
         ),
       };
-      const apikey = toHex(
+      const apikey = new Uint8Array(
         await this.#options.crypto.subtle.exportKey(
           "spki",
           keypair.current!.publicKey,
         ),
-      );
+      ).toHex();
       const tunnel = document.createElement("iframe");
       tunnel.width = "0";
       tunnel.height = "0";
@@ -219,7 +218,7 @@ export class StoicConnection implements Connection {
               break;
             case "sign":
               const data = JSON.parse(event.data.data);
-              const signature = fromHex(data.signed);
+              const signature = Uint8Array.fromHex(data.signed);
               const previousDelegationChain =
                 data.chain && DelegationChain.fromJSON(data.chain);
               this.#delegationChain = DelegationChain.fromDelegations(
@@ -257,9 +256,7 @@ export class StoicConnection implements Connection {
           case "confirmAuthorization":
             // Get public key from event
             publicKey = new Uint8Array(Object.values(event.data.key));
-            const principal = Principal.selfAuthenticating(
-              publicKey,
-            ).toText();
+            const principal = Principal.selfAuthenticating(publicKey).toText();
 
             // Once the connection has been approved, close window
             // and create iframe to get accounts and a delegation.
@@ -280,7 +277,7 @@ export class StoicConnection implements Connection {
                   payload: "accounts",
                   principal,
                   apikey,
-                  sig: toHex(
+                  sig: new Uint8Array(
                     await window.crypto.subtle.sign(
                       {
                         name: "ECDSA",
@@ -289,17 +286,17 @@ export class StoicConnection implements Connection {
                       keypair.current!.privateKey,
                       new TextEncoder().encode("accounts"),
                     ),
-                  ),
+                  ).toHex(),
                 },
                 STOIC_ORIGIN,
               );
               // Request delegation signature
-              const challenge = toHex(
+              const challenge = new Uint8Array(
                 new Uint8Array([
                   ...new TextEncoder().encode("\x1Aic-request-auth-delegation"),
                   ...new Uint8Array(requestIdOf({ ...delegation })),
                 ]).buffer,
-              );
+              ).toHex();
               tunnel.contentWindow.postMessage(
                 {
                   target: "STOIC-IFRAME",
@@ -307,7 +304,7 @@ export class StoicConnection implements Connection {
                   payload: challenge,
                   principal,
                   apikey,
-                  sig: toHex(
+                  sig: new Uint8Array(
                     await window.crypto.subtle.sign(
                       {
                         name: "ECDSA",
@@ -316,7 +313,7 @@ export class StoicConnection implements Connection {
                       keypair.current!.privateKey,
                       new TextEncoder().encode(challenge),
                     ),
-                  ),
+                  ).toHex(),
                 },
                 STOIC_ORIGIN,
               );

@@ -1,14 +1,9 @@
 {
   "compilerOptions": {
-    "target": "es2017",
+    "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "nodenext",
-    "lib": [
-      "dom",
-      "es2015",
-      "es2017",
-      "es2020"
-    ],
+    "lib": ["dom", "ESNext"],
     "sourceMap": true,
     "inlineSources": true,
     "strict": true,
@@ -16,12 +11,9 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
     "allowJs": true,
-    "verbatimModuleSyntax": true,
-    "typeRoots": [
-      "./node_modules/@types"
-    ]
+    "verbatimModuleSyntax": false,
+    "typeRoots": ["./node_modules/@types"],
+    "ignoreDeprecations": "6.0"
   },
-  "include": [
-    "src/**/*"
-  ]
+  "include": ["src/**/*"]
 }

@@ -1,4 +1,4 @@
-import type { AuthClient } from "@dfinity/auth-client";
+import type { AuthClient } from "@icp-sdk/auth/client";
 import { type Channel, type Connection, type JsonRequest, type JsonResponse } from "@slide-computer/signer";
 export interface AuthClientChannelOptions {
     /**

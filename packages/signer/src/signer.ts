@@ -36,7 +36,6 @@ import type {
   CallCanisterResponse,
 } from "./icrc49/index.js";
 import { NETWORK_ERROR } from "./errors.js";
-import { fromBase64, toBase64 } from "./utils.js";
 import type {
   BatchCallCanisterPermissionScope,
   BatchCallCanisterRequest,
@@ -290,7 +289,10 @@ export class Signer<T extends Transport = Transport> {
     const result = unwrapResponse(response);
     return result.accounts.map(({ owner, subaccount }) => ({
       owner: Principal.fromText(owner),
-      subaccount: subaccount === undefined ? undefined : fromBase64(subaccount),
+      subaccount:
+        subaccount === undefined
+          ? undefined
+          : Uint8Array.fromBase64(subaccount),
     }));
   }
 
@@ -307,7 +309,7 @@ export class Signer<T extends Transport = Transport> {
       jsonrpc: "2.0",
       method: "icrc34_delegation",
       params: {
-        publicKey: toBase64(params.publicKey),
+        publicKey: params.publicKey.toBase64(),
         targets: params.targets?.map((p) => p.toText()),
         maxTimeToLive:
           params.maxTimeToLive === undefined
@@ -319,15 +321,15 @@ export class Signer<T extends Transport = Transport> {
     return DelegationChain.fromDelegations(
       result.signerDelegation.map((delegation) => ({
         delegation: new Delegation(
-          fromBase64(delegation.delegation.pubkey),
+          Uint8Array.fromBase64(delegation.delegation.pubkey),
           BigInt(delegation.delegation.expiration),
           delegation.delegation.targets?.map((principal) =>
             Principal.fromText(principal),
           ),
         ),
-        signature: fromBase64(delegation.signature) as Signature,
+        signature: Uint8Array.fromBase64(delegation.signature) as Signature,
       })),
-      fromBase64(result.publicKey),
+      Uint8Array.fromBase64(result.publicKey),
     );
   }
 
@@ -349,13 +351,13 @@ export class Signer<T extends Transport = Transport> {
         canisterId: params.canisterId.toText(),
         sender: params.sender.toText(),
         method: params.method,
-        arg: toBase64(params.arg),
-        nonce: params.nonce ? toBase64(params.nonce) : undefined,
+        arg: params.arg.toBase64(),
+        nonce: params.nonce?.toBase64(),
       },
     });
     const result = unwrapResponse(response);
-    const contentMap = fromBase64(result.contentMap);
-    const certificate = fromBase64(result.certificate);
+    const contentMap = Uint8Array.fromBase64(result.contentMap);
+    const certificate = Uint8Array.fromBase64(result.certificate);
     return { contentMap, certificate };
   }
 
@@ -390,8 +392,8 @@ export class Signer<T extends Transport = Transport> {
           requests.map((request) => ({
             canisterId: request.canisterId.toText(),
             method: request.method,
-            arg: toBase64(request.arg),
-            nonce: request.nonce ? toBase64(request.nonce) : undefined,
+            arg: request.arg.toBase64(),
+            nonce: request.nonce?.toBase64(),
           })),
         ),
       },
@@ -412,8 +414,8 @@ export class Signer<T extends Transport = Transport> {
     return result.responses.map((responses) =>
       responses.map((response) => ({
         result: {
-          contentMap: fromBase64(response.contentMap),
-          certificate: fromBase64(response.certificate),
+          contentMap: Uint8Array.fromBase64(response.contentMap),
+          certificate: Uint8Array.fromBase64(response.certificate),
         },
       })),
     );

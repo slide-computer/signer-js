@@ -1,4 +1,4 @@
-import { AuthClient, type AuthClientLoginOptions } from "@dfinity/auth-client";
+import { AuthClient, type AuthClientLoginOptions } from "@icp-sdk/auth/client";
 import { type Channel, type Connection, type Transport } from "@slide-computer/signer";
 export declare class AuthClientTransportError extends Error {
     constructor(message: string);

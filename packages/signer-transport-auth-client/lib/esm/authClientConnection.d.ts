@@ -1,4 +1,4 @@
-import type { AuthClient, AuthClientLoginOptions } from "@dfinity/auth-client";
+import type { AuthClient, AuthClientLoginOptions } from "@icp-sdk/auth/client";
 import type { Connection } from "@slide-computer/signer";
 interface AuthClientConnectionOptions {
     /**

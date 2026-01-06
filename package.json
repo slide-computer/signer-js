@@ -25,6 +25,6 @@
     "esbuild": "^0.25.1",
     "eslint": "^9.22.0",
     "prettier": "^3.5.3",
-    "typescript": "^5.8.2"
+    "typescript": "^6.0.0-dev.20260106"
   }
 }

@@ -1,7 +1,7 @@
 import {type Channel, type Connection, type Transport,} from "@slide-computer/signer";
-import {StoicChannel} from "./stoicChannel";
-import {StoicConnection, type StoicConnectionOptions,} from "./stoicConnection";
-import type {HttpAgent} from "@dfinity/agent";
+import {StoicChannel} from "./stoicChannel.js";
+import {StoicConnection, type StoicConnectionOptions,} from "./stoicConnection.js";
+import type {HttpAgent} from "@icp-sdk/core/agent";
 
 export class StoicTransportError extends Error {
   constructor(message: string) {

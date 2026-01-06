@@ -1,5 +1,5 @@
-import { DelegationChain } from "@dfinity/identity";
-import type { SignerStorage } from "./storage";
+import { DelegationChain } from "@icp-sdk/core/identity";
+import type { SignerStorage } from "./storage.js";
 
 export const getDelegationChain = async (
   key: string,

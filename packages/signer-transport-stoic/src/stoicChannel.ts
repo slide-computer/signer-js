@@ -10,12 +10,12 @@ import {
   NOT_SUPPORTED_ERROR,
   toBase64,
 } from "@slide-computer/signer";
-import { StoicTransportError } from "./stoicTransport";
-import { scopes, supportedStandards } from "./constants";
-import { DelegationChain, DelegationIdentity } from "@dfinity/identity";
-import type { StoicConnection } from "./stoicConnection";
-import { Cbor, HttpAgent, polling, type SignIdentity } from "@dfinity/agent";
-import { Principal } from "@dfinity/principal";
+import { StoicTransportError } from "./stoicTransport.js";
+import { scopes, supportedStandards } from "./constants.js";
+import { DelegationChain, DelegationIdentity } from "@icp-sdk/core/identity";
+import type { StoicConnection } from "./stoicConnection.js";
+import { Cbor, HttpAgent, polling, type SignIdentity } from "@icp-sdk/core/agent";
+import { Principal } from "@icp-sdk/core/principal";
 
 export class StoicChannel implements Channel {
   readonly #connection: StoicConnection;
@@ -120,7 +120,7 @@ export class StoicChannel implements Channel {
               new DataView(buffer).setBigUint64(24, BigInt(index), false);
               return {
                 owner,
-                subaccount: toBase64(buffer),
+                subaccount: toBase64(new Uint8Array(buffer)),
               };
             }),
           },
@@ -174,7 +174,7 @@ export class StoicChannel implements Channel {
         };
       case "icrc49_call_canister":
         const callCanisterRequest = request as CallCanisterRequest;
-        const { pollForResponse, defaultStrategy } = polling;
+        const { pollForResponse } = polling;
         const canisterId = Principal.fromText(
           callCanisterRequest.params!.canisterId,
         );
@@ -192,7 +192,7 @@ export class StoicChannel implements Channel {
           this.#agent ?? (await HttpAgent.create()),
         );
         agent.replaceIdentity(delegationIdentity);
-        let contentMap: ArrayBuffer;
+        let contentMap: Uint8Array;
         agent.addTransform("update", async (agentRequest) => {
           contentMap = Cbor.encode(agentRequest.body);
           return agentRequest;
@@ -206,7 +206,6 @@ export class StoicChannel implements Channel {
           agent,
           canisterId,
           submitResponse.requestId,
-          defaultStrategy(),
         );
         const { certificate } = await agent.readState(canisterId, {
           paths: [

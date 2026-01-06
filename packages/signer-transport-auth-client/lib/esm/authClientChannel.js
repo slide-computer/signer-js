@@ -1,4 +1,3 @@
-"use strict";
 var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (receiver, state, value, kind, f) {
     if (kind === "m") throw new TypeError("Private method is not writable");
     if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
@@ -11,13 +10,10 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
     return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
 var _AuthClientChannel_instances, _AuthClientChannel_options, _AuthClientChannel_closed, _AuthClientChannel_closeListeners, _AuthClientChannel_responseListeners, _AuthClientChannel_createResponse;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AuthClientChannel = void 0;
-const signer_1 = require("@slide-computer/signer");
-const authClientTransport_1 = require("./authClientTransport");
-const constants_1 = require("./constants");
-const identity_1 = require("@dfinity/identity");
-class AuthClientChannel {
+import { NOT_SUPPORTED_ERROR, toBase64, } from "@slide-computer/signer";
+import { AuthClientTransportError } from "./authClientTransport.js";
+import { scopes, supportedStandards } from "./constants.js";
+export class AuthClientChannel {
     constructor(options) {
         _AuthClientChannel_instances.add(this);
         _AuthClientChannel_options.set(this, void 0);
@@ -46,15 +42,14 @@ class AuthClientChannel {
     }
     async send(request) {
         if (this.closed) {
-            throw new authClientTransport_1.AuthClientTransportError("Communication channel is closed");
+            throw new AuthClientTransportError("Communication channel is closed");
         }
         // Ignore one way messages
-        const id = request.id;
-        if (id === undefined) {
+        if (request.id === undefined) {
             return;
         }
         // Create response and call listeners
-        const response = await __classPrivateFieldGet(this, _AuthClientChannel_instances, "m", _AuthClientChannel_createResponse).call(this, Object.assign({ id }, request));
+        const response = __classPrivateFieldGet(this, _AuthClientChannel_instances, "m", _AuthClientChannel_createResponse).call(this, request);
         __classPrivateFieldGet(this, _AuthClientChannel_responseListeners, "f").forEach((listener) => listener(response));
     }
     async close() {
@@ -62,66 +57,47 @@ class AuthClientChannel {
         __classPrivateFieldGet(this, _AuthClientChannel_closeListeners, "f").forEach((listener) => listener());
     }
 }
-exports.AuthClientChannel = AuthClientChannel;
-_AuthClientChannel_options = new WeakMap(), _AuthClientChannel_closed = new WeakMap(), _AuthClientChannel_closeListeners = new WeakMap(), _AuthClientChannel_responseListeners = new WeakMap(), _AuthClientChannel_instances = new WeakSet(), _AuthClientChannel_createResponse = async function _AuthClientChannel_createResponse(request) {
-    const id = request.id;
-    if (!(0, signer_1.isJsonRpcRequest)(request)) {
-        return {
-            id,
-            jsonrpc: "2.0",
-            error: { code: signer_1.INVALID_REQUEST_ERROR, message: "Invalid request" },
-        };
+_AuthClientChannel_options = new WeakMap(), _AuthClientChannel_closed = new WeakMap(), _AuthClientChannel_closeListeners = new WeakMap(), _AuthClientChannel_responseListeners = new WeakMap(), _AuthClientChannel_instances = new WeakSet(), _AuthClientChannel_createResponse = function _AuthClientChannel_createResponse(request) {
+    if (request.id === undefined) {
+        throw new AuthClientTransportError("Request is missing id");
     }
     switch (request.method) {
         case "icrc25_supported_standards":
             return {
-                id,
+                id: request.id,
                 jsonrpc: "2.0",
-                result: { supportedStandards: constants_1.supportedStandards },
+                result: { supportedStandards },
             };
         case "icrc25_permissions":
         case "icrc25_request_permissions":
             return {
-                id,
+                id: request.id,
                 jsonrpc: "2.0",
-                result: { scopes: constants_1.scopes },
+                result: { scopes },
             };
         case "icrc34_delegation":
-            // As per the ICRC-34 spec, II only returns unscoped Relying Party delegations (without targets).
-            const delegationRequest = request;
-            if (!delegationRequest.params) {
-                throw new authClientTransport_1.AuthClientTransportError("Required params missing in request");
-            }
             const identity = __classPrivateFieldGet(this, _AuthClientChannel_options, "f").authClient.getIdentity();
-            const publicKey = (0, signer_1.fromBase64)(delegationRequest.params.publicKey);
-            const expiration = delegationRequest.params.maxTimeToLive
-                ? new Date(Date.now() +
-                    Number(BigInt(delegationRequest.params.maxTimeToLive) /
-                        BigInt(1000000)))
-                : undefined;
-            const delegation = await identity_1.DelegationChain.create(identity, { toDer: () => publicKey }, expiration, {
-                previous: identity.getDelegation(),
-            });
+            const delegation = identity.getDelegation();
             return {
-                id,
+                id: request.id,
                 jsonrpc: "2.0",
                 result: {
-                    publicKey: (0, signer_1.toBase64)(delegation.publicKey),
+                    publicKey: toBase64(new Uint8Array(delegation.publicKey)),
                     signerDelegation: delegation.delegations.map(({ delegation, signature }) => ({
-                        delegation: Object.assign({ pubkey: (0, signer_1.toBase64)(delegation.pubkey), expiration: delegation.expiration.toString() }, (delegation.targets
+                        delegation: Object.assign({ pubkey: toBase64(new Uint8Array(delegation.pubkey)), expiration: delegation.expiration.toString() }, (delegation.targets
                             ? {
                                 targets: delegation.targets.map((target) => target.toText()),
                             }
                             : {})),
-                        signature: (0, signer_1.toBase64)(signature),
+                        signature: toBase64(new Uint8Array(signature)),
                     })),
                 },
             };
         default:
             return {
-                id,
+                id: request.id,
                 jsonrpc: "2.0",
-                error: { code: signer_1.NOT_SUPPORTED_ERROR, message: "Not supported" },
+                error: { code: NOT_SUPPORTED_ERROR, message: "Not supported" },
             };
     }
 };

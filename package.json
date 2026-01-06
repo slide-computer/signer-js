@@ -8,7 +8,10 @@
       "./packages/signer",
       "./packages/signer-agent",
       "./packages/signer-web",
-      "./packages/signer-extension"
+      "./packages/signer-extension",
+      "./packages/signer-storage",
+      "./packages/signer-transport-stoic",
+      "./packages/signer-transport-auth-client"
     ]
   },
   "scripts": {

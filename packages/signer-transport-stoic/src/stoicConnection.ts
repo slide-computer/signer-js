@@ -1,12 +1,12 @@
 import type { Connection } from "@slide-computer/signer";
-import { StoicTransportError } from "./stoicTransport";
+import { StoicTransportError } from "./stoicTransport.js";
 import {
   Delegation,
   DelegationChain,
   ECDSAKeyIdentity,
   Ed25519KeyIdentity,
   isDelegationValid,
-} from "@dfinity/identity";
+} from "@icp-sdk/core/identity";
 import {
   getDelegationChain,
   getIdentity,
@@ -16,9 +16,10 @@ import {
   setIdentity,
   type SignerStorage,
 } from "@slide-computer/signer-storage";
-import { fromHex, requestIdOf, SignIdentity, toHex } from "@dfinity/agent";
-import { PartialIdentity } from "@dfinity/identity/lib/cjs/identity/partial";
-import { Principal } from "@dfinity/principal";
+import { requestIdOf, SignIdentity } from "@icp-sdk/core/agent";
+import type { PartialIdentity } from "@icp-sdk/core/identity";
+import { fromHex, toHex } from "./utils.js";
+import { Principal } from "@icp-sdk/core/principal";
 
 const ECDSA_KEY_LABEL = "ECDSA";
 const ED25519_KEY_LABEL = "Ed25519";
@@ -179,7 +180,7 @@ export class StoicConnection implements Connection {
         this.#options.identity.getPublicKey().toDer(),
         BigInt(Date.now()) * BigInt(1_000_000) + this.#options.maxTimeToLive,
       );
-      let publicKey: ArrayBuffer;
+      let publicKey: Uint8Array;
       const complete = async () => {
         window.removeEventListener("message", listener);
         document.body.removeChild(tunnel);
@@ -255,9 +256,9 @@ export class StoicConnection implements Connection {
             break;
           case "confirmAuthorization":
             // Get public key from event
-            publicKey = new Uint8Array(Object.values(event.data.key)).buffer;
+            publicKey = new Uint8Array(Object.values(event.data.key));
             const principal = Principal.selfAuthenticating(
-              new Uint8Array(publicKey),
+              publicKey,
             ).toText();
 
             // Once the connection has been approved, close window

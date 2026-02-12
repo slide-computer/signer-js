@@ -115,7 +115,6 @@ export class HeartbeatClient {
   }
 
   #maintain(origin: string, status: "pending" | "ready"): void {
-    let interval: ReturnType<typeof setInterval>;
     let timeout: ReturnType<typeof setTimeout>;
     let pending: Array<{ id: string | number; time: number }> = [];
 
@@ -149,7 +148,6 @@ export class HeartbeatClient {
       timeout = setTimeout(
         () => {
           listener();
-          clearInterval(interval);
 
           this.#options.onDisconnect();
         },
@@ -172,14 +170,15 @@ export class HeartbeatClient {
           this.#options.onStatusChange(response.data.result);
         }
       }
+      setTimeout(
+        () => this.#sendStatusRequest(create()),
+        this.#options.statusPollingRate,
+      );
     });
 
     // Init timeout and start sending requests
     resetTimeout(status);
-    interval = setInterval(
-      () => this.#sendStatusRequest(create()),
-      this.#options.statusPollingRate,
-    );
+    this.#sendStatusRequest(create());
   }
 
   #receiveStatusResponse(

@@ -1,6 +1,6 @@
 {
   "name": "@slide-computer/signer-storage",
-  "version": "4.2.0",
+  "version": "4.2.1",
   "author": "Slide",
   "license": "MIT",
   "description": "Storage implementation for signer library on the Internet Computer",
@@ -36,13 +36,8 @@
     "build": "tsc -b"
   },
   "type": "module",
-  "peerDependencies": {
-    "@icp-sdk/core": "^5.0.0"
-  },
   "dependencies": {
+    "@icp-sdk/core": "^5.0.0",
     "idb-keyval": "^6.2.2"
-  },
-  "devDependencies": {
-    "@icp-sdk/core": "^5.0.0"
   }
 }

@@ -1,4 +1,4 @@
-import type { Connection } from "@slide-computer/signer";
+import { fromHex, toHex, type Connection } from "@slide-computer/signer";
 import { StoicTransportError } from "./stoicTransport.js";
 import {
   Delegation,
@@ -165,12 +165,14 @@ export class StoicConnection implements Connection {
           ["sign", "verify"],
         ),
       };
-      const apikey = new Uint8Array(
-        await this.#options.crypto.subtle.exportKey(
-          "spki",
-          keypair.current!.publicKey,
+      const apikey = toHex(
+        new Uint8Array(
+          await this.#options.crypto.subtle.exportKey(
+            "spki",
+            keypair.current!.publicKey,
+          ),
         ),
-      ).toHex();
+      );
       const tunnel = document.createElement("iframe");
       tunnel.width = "0";
       tunnel.height = "0";
@@ -218,7 +220,7 @@ export class StoicConnection implements Connection {
               break;
             case "sign":
               const data = JSON.parse(event.data.data);
-              const signature = Uint8Array.fromHex(data.signed);
+              const signature = fromHex(data.signed);
               const previousDelegationChain =
                 data.chain && DelegationChain.fromJSON(data.chain);
               this.#delegationChain = DelegationChain.fromDelegations(
@@ -255,7 +257,7 @@ export class StoicConnection implements Connection {
             break;
           case "confirmAuthorization":
             // Get public key from event
-            publicKey = new Uint8Array(Object.values(event.data.key));
+            publicKey = fromHex(event.data.key);
             const principal = Principal.selfAuthenticating(publicKey).toText();
 
             // Once the connection has been approved, close window
@@ -277,26 +279,28 @@ export class StoicConnection implements Connection {
                   payload: "accounts",
                   principal,
                   apikey,
-                  sig: new Uint8Array(
-                    await window.crypto.subtle.sign(
-                      {
-                        name: "ECDSA",
-                        hash: { name: "SHA-384" },
-                      },
-                      keypair.current!.privateKey,
-                      new TextEncoder().encode("accounts"),
+                  sig: toHex(
+                    new Uint8Array(
+                      await window.crypto.subtle.sign(
+                        {
+                          name: "ECDSA",
+                          hash: { name: "SHA-384" },
+                        },
+                        keypair.current!.privateKey,
+                        new TextEncoder().encode("accounts"),
+                      ),
                     ),
-                  ).toHex(),
+                  ),
                 },
                 STOIC_ORIGIN,
               );
               // Request delegation signature
-              const challenge = new Uint8Array(
+              const challenge = toHex(
                 new Uint8Array([
                   ...new TextEncoder().encode("\x1Aic-request-auth-delegation"),
                   ...new Uint8Array(requestIdOf({ ...delegation })),
-                ]).buffer,
-              ).toHex();
+                ]),
+              );
               tunnel.contentWindow.postMessage(
                 {
                   target: "STOIC-IFRAME",
@@ -304,16 +308,18 @@ export class StoicConnection implements Connection {
                   payload: challenge,
                   principal,
                   apikey,
-                  sig: new Uint8Array(
-                    await window.crypto.subtle.sign(
-                      {
-                        name: "ECDSA",
-                        hash: { name: "SHA-384" },
-                      },
-                      keypair.current!.privateKey,
-                      new TextEncoder().encode(challenge),
+                  sig: toHex(
+                    new Uint8Array(
+                      await window.crypto.subtle.sign(
+                        {
+                          name: "ECDSA",
+                          hash: { name: "SHA-384" },
+                        },
+                        keypair.current!.privateKey,
+                        new TextEncoder().encode(challenge),
+                      ),
                     ),
-                  ).toHex(),
+                  ),
                 },
                 STOIC_ORIGIN,
               );

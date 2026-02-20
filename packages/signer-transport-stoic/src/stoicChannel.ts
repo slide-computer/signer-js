@@ -2,11 +2,13 @@ import {
   type CallCanisterRequest,
   type Channel,
   type DelegationRequest,
+  fromBase64,
   INVALID_REQUEST_ERROR,
   isJsonRpcRequest,
   type JsonRequest,
   type JsonResponse,
   NOT_SUPPORTED_ERROR,
+  toBase64,
 } from "@slide-computer/signer";
 import { StoicTransportError } from "./stoicTransport.js";
 import { scopes, supportedStandards } from "./constants.js";
@@ -123,7 +125,7 @@ export class StoicChannel implements Channel {
               new DataView(buffer).setBigUint64(24, BigInt(index), false);
               return {
                 owner,
-                subaccount: new Uint8Array(buffer).toBase64(),
+                subaccount: toBase64(new Uint8Array(buffer)),
               };
             }),
           },
@@ -144,8 +146,7 @@ export class StoicChannel implements Channel {
         const signedDelegationChain = await DelegationChain.create(
           identity,
           {
-            toDer: () =>
-              Uint8Array.fromBase64(delegationRequest.params!.publicKey),
+            toDer: () => fromBase64(delegationRequest.params!.publicKey),
           },
           expiration,
           {
@@ -159,11 +160,11 @@ export class StoicChannel implements Channel {
           id,
           jsonrpc: "2.0",
           result: {
-            publicKey: signedDelegationChain.publicKey.toBase64(),
+            publicKey: toBase64(signedDelegationChain.publicKey),
             signerDelegation: signedDelegationChain.delegations.map(
               ({ delegation, signature }) => ({
                 delegation: {
-                  pubkey: delegation.pubkey.toBase64(),
+                  pubkey: toBase64(delegation.pubkey),
                   expiration: delegation.expiration.toString(),
                   ...(delegation.targets
                     ? {
@@ -173,7 +174,7 @@ export class StoicChannel implements Channel {
                       }
                     : {}),
                 },
-                signature: signature.toBase64(),
+                signature: toBase64(signature),
               }),
             ),
           },
@@ -206,7 +207,7 @@ export class StoicChannel implements Channel {
         const submitResponse = await agent.call(canisterId, {
           effectiveCanisterId: canisterId,
           methodName: callCanisterRequest.params!.method,
-          arg: Uint8Array.fromBase64(callCanisterRequest.params!.arg),
+          arg: fromBase64(callCanisterRequest.params!.arg),
         });
         await pollForResponse(agent, canisterId, submitResponse.requestId);
         const { certificate } = await agent.readState(canisterId, {
@@ -221,8 +222,8 @@ export class StoicChannel implements Channel {
           id,
           jsonrpc: "2.0",
           result: {
-            contentMap: contentMap!.toBase64(),
-            certificate: certificate.toBase64(),
+            contentMap: toBase64(contentMap!),
+            certificate: toBase64(certificate),
           },
         };
       default:

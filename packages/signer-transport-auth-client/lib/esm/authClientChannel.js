@@ -1,6 +1,7 @@
 import { NOT_SUPPORTED_ERROR, } from "@slide-computer/signer";
 import { AuthClientTransportError } from "./authClientTransport.js";
 import { scopes, supportedStandards } from "./constants.js";
+import { toBase64 } from "@slide-computer/signer";
 export class AuthClientChannel {
     #options;
     #closed = false;
@@ -68,10 +69,10 @@ export class AuthClientChannel {
                     id: request.id,
                     jsonrpc: "2.0",
                     result: {
-                        publicKey: new Uint8Array(delegation.publicKey).toBase64(),
+                        publicKey: toBase64(delegation.publicKey),
                         signerDelegation: delegation.delegations.map(({ delegation, signature }) => ({
                             delegation: {
-                                pubkey: new Uint8Array(delegation.pubkey).toBase64(),
+                                pubkey: toBase64(delegation.pubkey),
                                 expiration: delegation.expiration.toString(),
                                 ...(delegation.targets
                                     ? {
@@ -79,7 +80,7 @@ export class AuthClientChannel {
                                     }
                                     : {}),
                             },
-                            signature: new Uint8Array(signature).toBase64(),
+                            signature: toBase64(signature),
                         })),
                     },
                 };

@@ -27,6 +27,7 @@ import { Principal } from "@icp-sdk/core/principal";
 import { type Signer } from "@slide-computer/signer";
 import { decodeCallRequest } from "./utils.js";
 import { Queue } from "./queue.js";
+import { toBase64 } from "../../signer/src/utils.js";
 
 const ROOT_KEY = new Uint8Array(
   IC_ROOT_KEY.match(/[\da-f]{2}/gi)!.map((h) => parseInt(h, 16)),
@@ -288,7 +289,7 @@ export class SignerAgent<
     }
 
     // Check if response has already been received previously to avoid replay attacks
-    const requestKey = requestId.toBase64();
+    const requestKey = toBase64(requestId);
     if (this.#certificates.has(requestKey)) {
       throw new SignerAgentError(INVALID_RESPONSE_MESSAGE);
     }
@@ -413,7 +414,7 @@ export class SignerAgent<
       throw new SignerAgentError("Given paths are not supported");
     }
     const requestId = options.paths[0][1] as RequestId;
-    const key = requestId.toBase64();
+    const key = toBase64(requestId);
     const certificate = this.#certificates.get(key);
     if (!certificate) {
       throw new SignerAgentError("Certificate could not be found");

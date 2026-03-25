@@ -1,8 +1,7 @@
+import type { JsonObject } from "@icp-sdk/core/candid";
 import type { JsonRequest, JsonResponse } from "../transport.js";
 
-export type PermissionScope<Method extends string = string> = {
-  method: Method;
-};
+export type PermissionScope = { method: string } & JsonObject;
 
 export type PermissionState = "denied" | "ask_on_use" | "granted";
 

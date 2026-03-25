@@ -20,24 +20,14 @@ import type {
   SupportedStandardsRequest,
   SupportedStandardsResponse,
 } from "./icrc25/index.js";
+import type { AccountsRequest, AccountsResponse } from "./icrc27/index.js";
+import type { DelegationRequest, DelegationResponse } from "./icrc34/index.js";
 import type {
-  AccountsPermissionScope,
-  AccountsRequest,
-  AccountsResponse,
-} from "./icrc27/index.js";
-import type {
-  DelegationPermissionScope,
-  DelegationRequest,
-  DelegationResponse,
-} from "./icrc34/index.js";
-import type {
-  CallCanisterPermissionScope,
   CallCanisterRequest,
   CallCanisterResponse,
 } from "./icrc49/index.js";
 import { NETWORK_ERROR } from "./errors.js";
 import type {
-  BatchCallCanisterPermissionScope,
   BatchCallCanisterRequest,
   BatchCallCanisterResponse,
 } from "./icrc112/index.js";
@@ -76,13 +66,6 @@ const unwrapResponse = <T extends JsonValue>(response: JsonResponse<T>): T => {
     message: "Invalid response",
   });
 };
-
-export type SignerPermissionScope =
-  | PermissionScope
-  | AccountsPermissionScope
-  | DelegationPermissionScope
-  | CallCanisterPermissionScope
-  | BatchCallCanisterPermissionScope;
 
 export interface SignerOptions<T extends Transport> {
   /**
@@ -251,8 +234,8 @@ export class Signer<T extends Transport = Transport> {
   }
 
   async requestPermissions(
-    scopes: SignerPermissionScope[],
-  ): Promise<Array<{ scope: SignerPermissionScope; state: PermissionState }>> {
+    scopes: PermissionScope[],
+  ): Promise<Array<{ scope: PermissionScope; state: PermissionState }>> {
     const response = await this.sendRequest<
       RequestPermissionsRequest,
       RequestPermissionsResponse
@@ -267,7 +250,7 @@ export class Signer<T extends Transport = Transport> {
   }
 
   async permissions(): Promise<
-    Array<{ scope: SignerPermissionScope; state: PermissionState }>
+    Array<{ scope: PermissionScope; state: PermissionState }>
   > {
     const response = await this.sendRequest<
       PermissionsRequest,

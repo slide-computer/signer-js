@@ -24,7 +24,7 @@ import {
   PipeArrayBuffer,
 } from "@icp-sdk/core/candid";
 import { Principal } from "@icp-sdk/core/principal";
-import { type Signer, toBase64 } from "../index.js";
+import { type Signer, type Transport, toBase64 } from "../index.js";
 import { decodeCallRequest } from "./utils.js";
 import { Queue } from "./queue.js";
 
@@ -34,11 +34,11 @@ const ROOT_KEY = new Uint8Array(
 const MAX_AGE_IN_MINUTES = 5;
 const INVALID_RESPONSE_MESSAGE = "Received invalid response from signer";
 
-export interface SignerAgentOptions<T extends Pick<Signer, "callCanister">> {
+export interface SignerAgentOptions<T extends Transport = Transport> {
   /**
    * Signer instance that should be used to send ICRC-25 JSON-RPC messages
    */
-  signer: T;
+  signer: Signer<T>;
   /**
    * Principal of account that should be used to make calls
    */
@@ -72,15 +72,11 @@ interface ScheduledCall {
   reject: (error: unknown) => void;
 }
 
-export class SignerAgent<
-  T extends Pick<
-    Signer,
-    "callCanister" | "openChannel" | "supportedStandards" | "batchCallCanister"
-  > = Signer,
-> implements Agent {
+export class SignerAgent<T extends Transport = Transport> implements Agent {
   // noinspection JSUnusedLocalSymbols
   static #isInternalConstructing: boolean = false;
-  readonly #options: Required<SignerAgentOptions<T>>;
+  // Internal storage uses base Transport; concrete type preserved via class generic + getter cast
+  readonly #options: Required<SignerAgentOptions>;
   readonly #certificates = new Map<string, Uint8Array>();
   readonly #queue = new Queue();
   #executeTimeout?: ReturnType<typeof setTimeout>;
@@ -88,7 +84,7 @@ export class SignerAgent<
   #autoBatch: boolean = true;
   #validationCanisterId?: Principal;
 
-  private constructor(options: Required<SignerAgentOptions<T>>) {
+  private constructor(options: Required<SignerAgentOptions>) {
     const throwError = !SignerAgent.#isInternalConstructing;
     SignerAgent.#isInternalConstructing = false;
     if (throwError) {
@@ -101,44 +97,28 @@ export class SignerAgent<
     return this.#options.agent.rootKey ?? ROOT_KEY;
   }
 
-  get signer(): T {
-    return this.#options.signer;
+  get signer(): Signer<T> {
+    return this.#options.signer as unknown as Signer<T>;
   }
 
-  static async create<
-    T extends Pick<
-      Signer,
-      | "callCanister"
-      | "openChannel"
-      | "supportedStandards"
-      | "batchCallCanister"
-    >,
-  >(options: SignerAgentOptions<T>) {
+  static async create<T extends Transport>(options: SignerAgentOptions<T>) {
     SignerAgent.#isInternalConstructing = true;
-    return new SignerAgent<T>({
+    return new SignerAgent({
       ...options,
       agent: options.agent ?? (await HttpAgent.create()),
       scheduleDelay: options.scheduleDelay ?? 20,
       validationCanisterId: options.validationCanisterId ?? null,
-    });
+    }) as SignerAgent<T>;
   }
 
-  static createSync<
-    T extends Pick<
-      Signer,
-      | "callCanister"
-      | "openChannel"
-      | "supportedStandards"
-      | "batchCallCanister"
-    >,
-  >(options: SignerAgentOptions<T>) {
+  static createSync<T extends Transport>(options: SignerAgentOptions<T>) {
     SignerAgent.#isInternalConstructing = true;
-    return new SignerAgent<T>({
+    return new SignerAgent({
       ...options,
       agent: options.agent ?? HttpAgent.createSync(),
       scheduleDelay: options.scheduleDelay ?? 20,
       validationCanisterId: options.validationCanisterId ?? null,
-    });
+    }) as SignerAgent<T>;
   }
 
   async execute() {

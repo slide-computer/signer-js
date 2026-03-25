@@ -1,10 +1,4 @@
-import type { PermissionScope } from "../icrc25/index.js";
 import type { JsonRequest, JsonResponse } from "../transport.js";
-import { Principal } from "@icp-sdk/core/principal";
-
-export type DelegationPermissionScope = PermissionScope<"icrc34_delegation"> & {
-  targets?: string[];
-};
 
 export type Delegation = {
   pubkey: string;
@@ -16,13 +10,6 @@ export type SignerDelegation = {
   delegation: Delegation;
   signature: string;
 };
-
-export const createDelegationPermissionScope = (params: {
-  targets?: Principal[];
-}): DelegationPermissionScope => ({
-  method: "icrc34_delegation",
-  targets: params.targets?.map((p) => p.toText()),
-});
 
 export type DelegationRequest = JsonRequest<
   "icrc34_delegation",

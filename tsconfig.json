@@ -1,18 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "rootDir": ".",
+    "target": "ES2022",
     "module": "NodeNext",
-    "moduleResolution": "nodenext",
-    "lib": ["dom", "ESNext"],
-    "sourceMap": true,
-    "inlineSources": true,
     "strict": true,
     "declaration": true,
-    "forceConsistentCasingInFileNames": true,
+    "sourceMap": true,
+    "allowJs": false,
     "esModuleInterop": true,
-    "allowJs": true,
-    "verbatimModuleSyntax": false,
-    "typeRoots": ["./node_modules/@types"]
+    "isolatedModules": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true
   },
-  "include": ["src/**/*"]
+  "exclude": ["node_modules", "lib", "**/*.test.ts"]
 }

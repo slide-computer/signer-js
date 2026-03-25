@@ -1,0 +1,19 @@
+{
+  "extends": ["./tsconfig.esm.json", "@tsconfig/node22/tsconfig.json"],
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "rootDir": "./src",
+    "outDir": "./lib/cjs",
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "verbatimModuleSyntax": false,
+    "paths": {
+      "@icp-sdk/core/agent": ["./node_modules/@icp-sdk/core/lib/esm/agent"],
+      "@icp-sdk/core/candid": ["./node_modules/@icp-sdk/core/lib/esm/candid"],
+      "@icp-sdk/core/identity": ["./node_modules/@icp-sdk/core/lib/esm/identity"],
+      "@icp-sdk/core/principal": ["./node_modules/@icp-sdk/core/lib/esm/principal"]
+    }
+  },
+  "include": ["./src/**/*.ts"],
+  "exclude": ["./src/**/*.test.ts"]
+}

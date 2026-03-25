@@ -24,7 +24,7 @@ import {
   PipeArrayBuffer,
 } from "@icp-sdk/core/candid";
 import { Principal } from "@icp-sdk/core/principal";
-import { type Signer, toBase64 } from "@slide-computer/signer";
+import { type Signer, toBase64 } from "../index.js";
 import { decodeCallRequest } from "./utils.js";
 import { Queue } from "./queue.js";
 
@@ -209,7 +209,7 @@ export class SignerAgent<
           validationCanisterId: validationCanisterId ?? undefined,
         });
         scheduled.forEach((entries, sequenceIndex) =>
-          entries.forEach(({ resolve, reject }, requestIndex) =>
+          entries.forEach(({ resolve }, requestIndex) =>
             resolve(responses[sequenceIndex][requestIndex].result),
           ),
         );
@@ -271,8 +271,8 @@ export class SignerAgent<
       rootKey: this.rootKey,
       principal: { canisterId },
       maxAgeInMinutes: MAX_AGE_IN_MINUTES,
-    }).catch(() => {
-      throw new SignerAgentError(INVALID_RESPONSE_MESSAGE);
+    }).catch((cause) => {
+      throw new SignerAgentError(INVALID_RESPONSE_MESSAGE, { cause });
     });
     const certificateIsResponseToContentMap =
       certificate.lookup_path(["request_status", requestId, "status"])

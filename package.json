@@ -1,26 +1,77 @@
 {
   "name": "@slide-computer/signer",
   "version": "4.2.2",
-  "private": true,
-  "description": "Initiate transactions and authenticate with signers on the Internet Computer",
-  "workspaces": {
-    "packages": [
-      "./packages/signer",
-      "./packages/signer-agent",
-      "./packages/signer-web",
-      "./packages/signer-extension",
-      "./packages/signer-storage",
-      "./packages/signer-transport-stoic",
-      "./packages/signer-transport-auth-client"
-    ]
-  },
-  "scripts": {
-    "build": "npm run build --workspaces"
-  },
   "author": "Slide",
   "license": "MIT",
+  "description": "JavaScript and TypeScript library to interact with signers on the Internet Computer",
+  "homepage": "https://github.com/slide-computer/signer-js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slide-computer/signer-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/slide-computer/signer-js/issues"
+  },
+  "keywords": [
+    "internet computer",
+    "internet-computer",
+    "ic",
+    "dfinity",
+    "signer",
+    "wallet",
+    "actor",
+    "dfx",
+    "canister",
+    "candid",
+    "motoko",
+    "javascript",
+    "typescript",
+    "blockchain",
+    "crypto",
+    "distributed",
+    "api",
+    "sdk"
+  ],
+  "type": "module",
+  "types": "./lib/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/esm/index.d.ts",
+      "import": "./lib/esm/index.js",
+      "node": "./lib/cjs/index.js",
+      "require": "./lib/cjs/index.js",
+      "default": "./lib/esm/index.js"
+    },
+    "./agent": {
+      "types": "./lib/esm/agent/index.d.ts",
+      "import": "./lib/esm/agent/index.js",
+      "node": "./lib/cjs/agent/index.js",
+      "require": "./lib/cjs/agent/index.js",
+      "default": "./lib/esm/agent/index.js"
+    },
+    "./web": {
+      "types": "./lib/esm/web/index.d.ts",
+      "import": "./lib/esm/web/index.js",
+      "node": "./lib/cjs/web/index.js",
+      "require": "./lib/cjs/web/index.js",
+      "default": "./lib/esm/web/index.js"
+    },
+    "./extension": {
+      "types": "./lib/esm/extension/index.d.ts",
+      "import": "./lib/esm/extension/index.js",
+      "node": "./lib/cjs/extension/index.js",
+      "require": "./lib/cjs/extension/index.js",
+      "default": "./lib/esm/extension/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json"
+  },
+  "dependencies": {
+    "@icp-sdk/core": "^5.0.0"
+  },
   "devDependencies": {
-    "@tsconfig/node18": "^18.2.4",
+    "@tsconfig/node22": "^22.0.1",
     "@types/node": "^22.13.10",
     "esbuild": "^0.27.3",
     "eslint": "^10.0.0",

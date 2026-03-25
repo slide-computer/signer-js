@@ -1,4 +1,4 @@
-import { isJsonRpcResponse, type JsonResponse } from "../../../transport.js";
+import { isJsonRpcResponse, type JsonRpcResponse } from "../../transport.js";
 
 export interface HeartbeatClientOptions {
   /**
@@ -182,7 +182,7 @@ export class HeartbeatClient {
   }
 
   #receiveStatusResponse(
-    handler: (event: MessageEvent<JsonResponse<"pending" | "ready">>) => void,
+    handler: (event: MessageEvent<JsonRpcResponse<"pending" | "ready">>) => void,
   ): () => void {
     const listener = (event: MessageEvent) => {
       if (

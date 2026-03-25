@@ -1,43 +1,40 @@
 import { Principal } from "@icp-sdk/core/principal";
 import { Delegation, DelegationChain } from "@icp-sdk/core/identity";
 import { type Signature } from "@icp-sdk/core/agent";
-import type { JsonValue } from "@icp-sdk/core/candid";
+import type { JsonObject, JsonValue } from "@icp-sdk/core/candid";
 import type {
   Channel,
-  JsonError,
-  JsonRequest,
-  JsonResponse,
+  JsonRpcError,
+  JsonRpcRequest,
+  JsonRpcResponse,
   Transport,
 } from "./transport.js";
-import type {
-  PermissionScope,
-  PermissionsRequest,
-  PermissionsResponse,
-  PermissionState,
-  RequestPermissionsRequest,
-  RequestPermissionsResponse,
-  SupportedStandard,
-  SupportedStandardsRequest,
-  SupportedStandardsResponse,
-} from "./icrc25/index.js";
-import type { AccountsRequest, AccountsResponse } from "./icrc27/index.js";
-import type { DelegationRequest, DelegationResponse } from "./icrc34/index.js";
-import type {
-  CallCanisterRequest,
-  CallCanisterResponse,
-} from "./icrc49/index.js";
 import { NETWORK_ERROR } from "./errors.js";
-import type {
-  BatchCallCanisterRequest,
-  BatchCallCanisterResponse,
-} from "./icrc112/index.js";
 import { fromBase64, toBase64 } from "./utils.js";
+
+export type PermissionScope = { method: string } & JsonObject;
+
+export type PermissionState = "denied" | "ask_on_use" | "granted";
+
+export type SupportedStandard = {
+  name: string;
+  url: string;
+};
+
+export type SignerDelegation = {
+  delegation: {
+    pubkey: string;
+    expiration: string;
+    targets?: string[];
+  };
+  signature: string;
+};
 
 export class SignerError extends Error {
   public code: number;
   public data?: JsonValue;
 
-  constructor(error: JsonError, options?: ErrorOptions) {
+  constructor(error: JsonRpcError, options?: ErrorOptions) {
     super(error.message, options);
 
     this.code = error.code;
@@ -54,7 +51,7 @@ const wrapTransportError = (error: unknown) =>
     { cause: error },
   );
 
-const unwrapResponse = <T extends JsonValue>(response: JsonResponse<T>): T => {
+const unwrapResponse = <T extends JsonValue>(response: JsonRpcResponse<T>): T => {
   if ("error" in response) {
     throw new SignerError(response.error);
   }
@@ -147,7 +144,7 @@ export class Signer<T extends Transport = Transport> {
     await this.#channel?.close();
   }
 
-  async transformRequest<T extends JsonRequest>(request: T): Promise<T> {
+  async transformRequest<T extends JsonRpcRequest>(request: T): Promise<T> {
     if (this.#options.derivationOrigin) {
       return {
         ...request,
@@ -160,7 +157,7 @@ export class Signer<T extends Transport = Transport> {
     return request;
   }
 
-  async sendRequest<T extends JsonRequest, S extends JsonResponse>(
+  async sendRequest<T extends JsonRpcRequest, S extends JsonRpcResponse>(
     request: T,
   ): Promise<S> {
     // Establish new or re-use existing transport channel
@@ -222,8 +219,8 @@ export class Signer<T extends Transport = Transport> {
 
   async supportedStandards(): Promise<SupportedStandard[]> {
     const response = await this.sendRequest<
-      SupportedStandardsRequest,
-      SupportedStandardsResponse
+      JsonRpcRequest<"icrc25_supported_standards">,
+      JsonRpcResponse<{ supportedStandards: SupportedStandard[] }>
     >({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
@@ -237,8 +234,8 @@ export class Signer<T extends Transport = Transport> {
     scopes: PermissionScope[],
   ): Promise<Array<{ scope: PermissionScope; state: PermissionState }>> {
     const response = await this.sendRequest<
-      RequestPermissionsRequest,
-      RequestPermissionsResponse
+      JsonRpcRequest<"icrc25_request_permissions", { scopes: PermissionScope[] }>,
+      JsonRpcResponse<{ scopes: Array<{ scope: PermissionScope; state: PermissionState }> }>
     >({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
@@ -253,8 +250,8 @@ export class Signer<T extends Transport = Transport> {
     Array<{ scope: PermissionScope; state: PermissionState }>
   > {
     const response = await this.sendRequest<
-      PermissionsRequest,
-      PermissionsResponse
+      JsonRpcRequest<"icrc25_permissions">,
+      JsonRpcResponse<{ scopes: Array<{ scope: PermissionScope; state: PermissionState }> }>
     >({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
@@ -267,7 +264,10 @@ export class Signer<T extends Transport = Transport> {
   async accounts(): Promise<
     Array<{ owner: Principal; subaccount?: Uint8Array }>
   > {
-    const response = await this.sendRequest<AccountsRequest, AccountsResponse>({
+    const response = await this.sendRequest<
+      JsonRpcRequest<"icrc27_accounts">,
+      JsonRpcResponse<{ accounts: Array<{ owner: string; subaccount?: string }> }>
+    >({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
       method: "icrc27_accounts",
@@ -285,8 +285,8 @@ export class Signer<T extends Transport = Transport> {
     maxTimeToLive?: bigint;
   }): Promise<DelegationChain> {
     const response = await this.sendRequest<
-      DelegationRequest,
-      DelegationResponse
+      JsonRpcRequest<"icrc34_delegation", { publicKey: string; targets?: string[]; maxTimeToLive?: string }>,
+      JsonRpcResponse<{ publicKey: string; signerDelegation: SignerDelegation[] }>
     >({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
@@ -324,8 +324,8 @@ export class Signer<T extends Transport = Transport> {
     nonce?: Uint8Array;
   }): Promise<{ contentMap: Uint8Array; certificate: Uint8Array }> {
     const response = await this.sendRequest<
-      CallCanisterRequest,
-      CallCanisterResponse
+      JsonRpcRequest<"icrc49_call_canister", { canisterId: string; sender: string; method: string; arg: string; nonce?: string }>,
+      JsonRpcResponse<{ contentMap: string; certificate: string }>
     >({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
@@ -362,8 +362,12 @@ export class Signer<T extends Transport = Transport> {
     }[][]
   > {
     const response = await this.sendRequest<
-      BatchCallCanisterRequest,
-      BatchCallCanisterResponse
+      JsonRpcRequest<"icrc112_batch_call_canister", {
+        sender: string;
+        validationCanisterId?: string;
+        requests: { canisterId: string; method: string; arg: string; nonce?: string }[][];
+      }>,
+      JsonRpcResponse<{ responses: { contentMap: string; certificate: string }[][] }>
     >({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",

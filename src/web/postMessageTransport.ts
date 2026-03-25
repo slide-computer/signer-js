@@ -1,6 +1,6 @@
-import { type Transport } from "../../transport.js";
+import { type Transport } from "../transport.js";
 import { PostMessageChannel } from "./postMessageChannel.js";
-import { urlIsSecureContext } from "../utils.js";
+import { urlIsSecureContext } from "./utils.js";
 import { HeartbeatClient } from "./heartbeat/index.js";
 
 const NON_CLICK_ESTABLISHMENT_LINK =

@@ -1,4 +1,4 @@
-import { isJsonRpcRequest, type JsonRequest } from "../../../transport.js";
+import { isJsonRpcRequest } from "../../transport.js";
 
 export interface HeartbeatServerOptions {
   /**
@@ -45,11 +45,11 @@ export class HeartbeatServer {
   constructor(options: HeartbeatServerOptions) {
     this.#options = {
       status: "ready",
-      allowedOrigin: null,
       establishTimeout: 10000,
       disconnectTimeout: 2000,
       window: globalThis.window,
       ...options,
+      allowedOrigin: options.allowedOrigin ?? null,
     };
 
     this.#establish();
@@ -62,7 +62,7 @@ export class HeartbeatServer {
   #establish(): void {
     // Establish communication channel if a request is received
     const listener = this.#receiveStatusRequest((request) => {
-      if (!request.source || !request.data.id) {
+      if (request.source === null || request.data.id === undefined) {
         return;
       }
       listener();
@@ -72,6 +72,24 @@ export class HeartbeatServer {
       this.#sendStatusResponse(request.data.id, request.origin, request.source);
       this.#maintain(request.origin, request.source);
     });
+
+    // Send initial status response to kickstart the process
+    // in case the client is already waiting for responses.
+    //
+    // This resumes the client page from sleep in the case
+    // of browsers like Safari that unload background pages
+    // after a certain idle time and requiring an event to
+    // wake them up again (e.g. by sending a message to them).
+    if (
+      this.#options.allowedOrigin !== null &&
+      this.#options.window.opener !== null
+    ) {
+      this.#sendStatusResponse(
+        "wake-up-client",
+        this.#options.allowedOrigin,
+        this.#options.window.opener,
+      );
+    }
 
     // Init timeout
     const timeout = setTimeout(() => {
@@ -114,18 +132,17 @@ export class HeartbeatServer {
     });
   }
 
-  #receiveStatusRequest(
-    handler: (event: MessageEvent<JsonRequest<"icrc29_status">>) => void,
-  ): () => void {
+  #receiveStatusRequest(handler: (event: MessageEvent) => void): () => void {
     const listener = (event: MessageEvent) => {
       if (
-        isJsonRpcRequest(event.data) &&
-        event.data.method === "icrc29_status" &&
-        (!this.#options.allowedOrigin ||
-          this.#options.allowedOrigin === event.origin)
+        !isJsonRpcRequest(event.data) ||
+        event.data.method !== "icrc29_status" ||
+        (this.#options.allowedOrigin !== null &&
+          event.origin !== this.#options.allowedOrigin)
       ) {
-        handler(event);
+        return;
       }
+      handler(event);
     };
     this.#options.window.addEventListener("message", listener);
     return () => this.#options.window.removeEventListener("message", listener);

@@ -1,9 +1,9 @@
 import {
   type Channel,
   isJsonRpcResponse,
-  type JsonRequest,
-  type JsonResponse,
-} from "../../transport.js";
+  type JsonRpcRequest,
+  type JsonRpcResponse,
+} from "../transport.js";
 import type { ProviderDetail } from "./types.js";
 import { BrowserExtensionTransportError } from "./browserExtensionTransport.js";
 
@@ -21,7 +21,7 @@ export interface BrowserExtensionChannelOptions {
 
 export class BrowserExtensionChannel implements Channel {
   readonly #closeListeners = new Set<() => void>();
-  readonly #responseListeners = new Set<(response: JsonResponse) => void>();
+  readonly #responseListeners = new Set<(response: JsonRpcResponse) => void>();
   readonly #options: Required<BrowserExtensionChannelOptions>;
   #closed = false;
 
@@ -52,7 +52,7 @@ export class BrowserExtensionChannel implements Channel {
   addEventListener(
     ...[event, listener]:
       | [event: "close", listener: () => void]
-      | [event: "response", listener: (response: JsonResponse) => void]
+      | [event: "response", listener: (response: JsonRpcResponse) => void]
   ): () => void {
     switch (event) {
       case "close":
@@ -68,7 +68,7 @@ export class BrowserExtensionChannel implements Channel {
     }
   }
 
-  async send(request: JsonRequest): Promise<void> {
+  async send(request: JsonRpcRequest): Promise<void> {
     if (this.#closed) {
       throw new BrowserExtensionTransportError(
         "Communication channel is closed",

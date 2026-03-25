@@ -1,4 +1,4 @@
-import type { JsonRequest } from "../../transport.js";
+import type { JsonRpcRequest } from "../transport.js";
 
 export interface ProviderDetail {
   /**
@@ -20,7 +20,7 @@ export interface ProviderDetail {
   /**
    * Communication channel for relying party to send and receive JSON-RPC messages
    */
-  sendMessage: (message: JsonRequest) => Promise<unknown>;
+  sendMessage: (message: JsonRpcRequest) => Promise<unknown>;
   /**
    * Dismiss the extension window
    */

@@ -1,9 +1,9 @@
 import {
   type Channel,
   isJsonRpcResponse,
-  type JsonRequest,
-  type JsonResponse,
-} from "../../transport.js";
+  type JsonRpcRequest,
+  type JsonRpcResponse,
+} from "../transport.js";
 import { PostMessageTransportError } from "./postMessageTransport.js";
 
 export interface PostMessageChannelOptions {
@@ -35,7 +35,7 @@ export class PostMessageChannel implements Channel {
   readonly #closeListeners = new Set<() => void>();
   readonly #options: Required<PostMessageChannelOptions>;
   #closed = false;
-  #pendingQueue: JsonRequest[] = [];
+  #pendingQueue: JsonRpcRequest[] = [];
 
   constructor(options: PostMessageChannelOptions) {
     this.#options = {
@@ -53,7 +53,7 @@ export class PostMessageChannel implements Channel {
   addEventListener(
     ...[event, listener]:
       | [event: "close", listener: () => void]
-      | [event: "response", listener: (response: JsonResponse) => void]
+      | [event: "response", listener: (response: JsonRpcResponse) => void]
   ): () => void {
     switch (event) {
       case "close":
@@ -79,7 +79,7 @@ export class PostMessageChannel implements Channel {
     }
   }
 
-  async send(request: JsonRequest): Promise<void> {
+  async send(request: JsonRpcRequest): Promise<void> {
     if (this.#closed) {
       throw new PostMessageTransportError("Communication channel is closed");
     }

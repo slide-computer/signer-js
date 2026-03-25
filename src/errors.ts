@@ -21,3 +21,6 @@ export const isNotSupportedError = (error: number) =>
 export const isUserActionError = (error: number) =>
   error >= 3000 && error <= 3999;
 export const isNetworkError = (error: number) => error >= 4000 && error <= 4999;
+
+// ICRC-39 errors
+export const NOT_PROCESSED_DUE_TO_BATCH_REQUEST_FAILURE = 10101;

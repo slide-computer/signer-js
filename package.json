@@ -71,10 +71,10 @@
     "@icp-sdk/core": "^5"
   },
   "devDependencies": {
-    "@tsconfig/node22": "^22.0.1",
-    "@types/node": "^22.13.10",
-    "esbuild": "^0.27.3",
-    "eslint": "^10.0.0",
+    "@tsconfig/node22": "^22.0.5",
+    "@types/node": "^25.5.0",
+    "esbuild": "^0.27.4",
+    "eslint": "^10.1.0",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3"
   }

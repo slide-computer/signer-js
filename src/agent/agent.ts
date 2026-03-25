@@ -2,10 +2,10 @@ import {
   type Agent,
   type ApiQueryResponse,
   Certificate,
+  type CallRequest,
   HttpAgent,
   IC_ROOT_KEY,
   type Identity,
-  lookupResultToBuffer,
   LookupPathStatus,
   type QueryFields,
   type QueryResponseStatus,
@@ -15,18 +15,13 @@ import {
   requestIdOf,
   SubmitRequestType,
   type SubmitResponse,
+  type UpdateResult,
   type CallOptions,
 } from "@icp-sdk/core/agent";
-import {
-  type JsonObject,
-  compare,
-  lebDecode,
-  PipeArrayBuffer,
-} from "@icp-sdk/core/candid";
+import { type JsonObject, uint8Equals } from "@icp-sdk/core/candid";
 import { Principal } from "@icp-sdk/core/principal";
 import { type Signer, type Transport, toBase64 } from "../index.js";
 import { decodeCallRequest } from "./utils.js";
-import { Queue } from "./queue.js";
 
 const ROOT_KEY = new Uint8Array(
   IC_ROOT_KEY.match(/[\da-f]{2}/gi)!.map((h) => parseInt(h, 16)),
@@ -48,41 +43,23 @@ export interface SignerAgentOptions<T extends Transport = Transport> {
    * @default uses {@link HttpAgent} by default
    */
   agent?: HttpAgent;
-  /**
-   * Optional, delay in milliseconds used to detect parallel calls and turn them into a single batch call
-   * @default 20
-   */
-  scheduleDelay?: number;
-  /**
-   * Optional, validation used with batch call canister
-   * @default undefined
-   */
-  validationCanisterId?: Principal | null;
 }
 
 export class SignerAgentError extends Error {}
 
-interface ScheduledCall {
-  canisterId: Principal;
-  fields: CallOptions;
-  resolve: (response: {
-    contentMap: Uint8Array;
-    certificate: Uint8Array;
-  }) => void;
-  reject: (error: unknown) => void;
+interface VerifiedCall {
+  requestId: RequestId;
+  requestBody: CallRequest;
+  certificate: Certificate;
+  rawCertificate: Uint8Array;
+  reply: Uint8Array;
 }
 
 export class SignerAgent<T extends Transport = Transport> implements Agent {
-  // noinspection JSUnusedLocalSymbols
   static #isInternalConstructing: boolean = false;
-  // Internal storage uses base Transport; concrete type preserved via class generic + getter cast
   readonly #options: Required<SignerAgentOptions>;
   readonly #certificates = new Map<string, Uint8Array>();
-  readonly #queue = new Queue();
-  #executeTimeout?: ReturnType<typeof setTimeout>;
-  #scheduled: ScheduledCall[][] = [[]];
-  #autoBatch: boolean = true;
-  #validationCanisterId?: Principal;
+  #pending: Promise<void> = Promise.resolve();
 
   private constructor(options: Required<SignerAgentOptions>) {
     const throwError = !SignerAgent.#isInternalConstructing;
@@ -106,8 +83,6 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     return new SignerAgent({
       ...options,
       agent: options.agent ?? (await HttpAgent.create()),
-      scheduleDelay: options.scheduleDelay ?? 20,
-      validationCanisterId: options.validationCanisterId ?? null,
     }) as SignerAgent<T>;
   }
 
@@ -116,130 +91,45 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     return new SignerAgent({
       ...options,
       agent: options.agent ?? HttpAgent.createSync(),
-      scheduleDelay: options.scheduleDelay ?? 20,
-      validationCanisterId: options.validationCanisterId ?? null,
     }) as SignerAgent<T>;
   }
 
-  async execute() {
-    const scheduled = [...this.#scheduled];
-    const validationCanisterId = this.#validationCanisterId;
-    this.clear();
-
-    const pending = scheduled.flat().length;
-    if (pending === 0) {
-      this.#validationCanisterId = undefined;
-      return;
-    }
-
-    const needsBatch = pending > 1;
-    if (!needsBatch) {
-      await this.#executeQueue(scheduled);
-      return;
-    }
-
-    const supportedStandards = await this.#queue.schedule(() =>
-      this.signer.supportedStandards(),
-    );
-    const supportsBatch = supportedStandards.some(
-      (supportedStandard) => supportedStandard.name === "ICRC-112",
-    );
-    if (supportsBatch) {
-      await this.#executeBatch(scheduled, validationCanisterId);
-    } else {
-      await this.#executeQueue(scheduled);
-    }
-  }
-
-  async #executeQueue(scheduled: ScheduledCall[][]): Promise<void> {
-    await Promise.all(
-      scheduled.flat().map(({ canisterId, fields, resolve, reject }) =>
-        this.#queue.schedule(async () => {
-          try {
-            const response = await this.signer.callCanister({
-              canisterId,
-              sender: this.#options.account,
-              method: fields.methodName,
-              arg: fields.arg,
-            });
-            resolve(response);
-          } catch (error) {
-            reject(error);
-          }
-        }),
-      ),
-    );
-  }
-
-  async #executeBatch(
-    scheduled: ScheduledCall[][],
-    validationCanisterId?: Principal,
-  ): Promise<void> {
-    await this.#queue.schedule(async () => {
-      try {
-        const responses = await this.signer.batchCallCanister({
-          sender: this.#options.account,
-          requests: scheduled.map((entries) =>
-            entries.map(({ canisterId, fields }) => ({
-              canisterId,
-              method: fields.methodName,
-              arg: fields.arg,
-            })),
-          ),
-          validationCanisterId: validationCanisterId ?? undefined,
-        });
-        scheduled.forEach((entries, sequenceIndex) =>
-          entries.forEach(({ resolve }, requestIndex) =>
-            resolve(responses[sequenceIndex][requestIndex].result),
-          ),
-        );
-      } catch (error) {
-        // TODO: Handle `partialResponses` e.g. return retry method in error
-        // Forward error to each canister call handler
-        scheduled.flat().forEach(({ reject }) => reject(error));
-      }
-    });
-  }
-
-  async call(
-    canisterId: Principal | string,
+  /**
+   * Sends a canister call through the signer, validates the response,
+   * and returns the verified certificate with the reply.
+   */
+  async #sendAndVerify(
+    canisterId: Principal,
     fields: CallOptions,
-  ): Promise<SubmitResponse> {
-    // Make sure canisterId is a principal
-    canisterId = Principal.from(canisterId);
-
-    // Manually open the transport channel here first to make sure that
-    // the scheduler does not e.g. block a popup window from opening.
+  ): Promise<VerifiedCall> {
+    // Open the transport channel first to avoid blocking popups
     await this.#options.signer.openChannel();
 
-    // Make call through scheduler that automatically performs a single call or batch call.
+    // Queue the call to ensure sequential execution
     const response = await new Promise<
       Awaited<ReturnType<Signer["callCanister"]>>
     >((resolve, reject) => {
-      clearTimeout(this.#executeTimeout);
-      this.#scheduled.slice(-1)[0].push({
-        canisterId,
-        fields,
-        resolve,
-        reject,
-      });
-      if (this.#autoBatch) {
-        this.#executeTimeout = setTimeout(
-          () => this.execute(),
-          this.#options.scheduleDelay,
-        );
-      }
+      this.#pending = this.#pending.finally(() =>
+        this.signer
+          .callCanister({
+            canisterId,
+            sender: this.#options.account,
+            method: fields.methodName,
+            arg: fields.arg,
+          })
+          .then(resolve, reject),
+      );
     });
 
     // Validate content map
     const requestBody = decodeCallRequest(response.contentMap);
     const contentMapMatchesRequest =
       SubmitRequestType.Call === requestBody.request_type &&
-      canisterId.compareTo(requestBody.canister_id) === "eq" &&
+      canisterId.toText() === requestBody.canister_id.toText() &&
       fields.methodName === requestBody.method_name &&
-      compare(fields.arg, requestBody.arg) === 0 &&
-      this.#options.account.compareTo(Principal.from(requestBody.sender)) ===
-        "eq";
+      uint8Equals(fields.arg, requestBody.arg) &&
+      this.#options.account.toText() ===
+        Principal.from(requestBody.sender).toText();
     if (!contentMapMatchesRequest) {
       throw new SignerAgentError(INVALID_RESPONSE_MESSAGE);
     }
@@ -254,34 +144,38 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     }).catch((cause) => {
       throw new SignerAgentError(INVALID_RESPONSE_MESSAGE, { cause });
     });
-    const certificateIsResponseToContentMap =
-      certificate.lookup_path(["request_status", requestId, "status"])
-        .status === LookupPathStatus.Found;
-    if (!certificateIsResponseToContentMap) {
+
+    // Extract reply
+    const replyLookup = certificate.lookup_path([
+      "request_status",
+      requestId,
+      "reply",
+    ]);
+    if (replyLookup.status !== LookupPathStatus.Found) {
       throw new SignerAgentError(INVALID_RESPONSE_MESSAGE);
     }
 
-    // Check if response has already been received previously to avoid replay attacks
-    const requestKey = toBase64(requestId);
-    if (this.#certificates.has(requestKey)) {
-      throw new SignerAgentError(INVALID_RESPONSE_MESSAGE);
-    }
+    // Store raw certificate for readState lookups
+    this.#certificates.set(toBase64(requestId), response.certificate);
 
-    // Store certificate in map
-    this.#certificates.set(requestKey, response.certificate);
+    return {
+      requestId,
+      requestBody,
+      certificate,
+      rawCertificate: response.certificate,
+      reply: replyLookup.value,
+    };
+  }
 
-    // Cleanup when certificate expires
-    const now = Date.now();
-    const lookupTime = lookupResultToBuffer(certificate.lookup_path(["time"]));
-    if (!lookupTime) {
-      throw new SignerAgentError(INVALID_RESPONSE_MESSAGE);
-    }
-    const certificateTime =
-      Number(lebDecode(new PipeArrayBuffer(lookupTime))) / 1_000_000;
-    const expiry = certificateTime - now + MAX_AGE_IN_MINUTES * 60 * 1000;
-    setTimeout(() => this.#certificates.delete(requestKey), expiry);
-
-    // Return request id with http response
+  async call(
+    canisterId: Principal | string,
+    fields: CallOptions,
+  ): Promise<SubmitResponse> {
+    canisterId = Principal.from(canisterId);
+    const { requestId, requestBody } = await this.#sendAndVerify(
+      canisterId,
+      fields,
+    );
     return {
       requestId,
       response: {
@@ -289,6 +183,53 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
         status: 202,
         statusText: "Call has been sent over ICRC-25 JSON-RPC",
         body: null,
+        headers: [],
+      },
+      requestDetails: requestBody,
+    };
+  }
+
+  async update(
+    canisterId: Principal | string,
+    fields: CallOptions,
+  ): Promise<UpdateResult> {
+    canisterId = Principal.from(canisterId);
+    const { requestBody, certificate, rawCertificate, reply } =
+      await this.#sendAndVerify(canisterId, fields);
+    return {
+      certificate,
+      reply,
+      rawCertificate,
+      requestDetails: requestBody,
+      callResponse: {
+        ok: true,
+        status: 202,
+        statusText: "Call has been sent over ICRC-25 JSON-RPC",
+        body: null,
+        headers: [],
+      },
+    };
+  }
+
+  async query(
+    canisterId: Principal | string,
+    options: QueryFields,
+  ): Promise<ApiQueryResponse> {
+    canisterId = Principal.from(canisterId);
+    const { requestId, reply } = await this.#sendAndVerify(canisterId, {
+      methodName: options.methodName,
+      arg: options.arg,
+      effectiveCanisterId: canisterId,
+    });
+    return {
+      requestId,
+      status: "replied" as QueryResponseStatus.Replied,
+      reply: { arg: reply },
+      httpDetails: {
+        ok: true,
+        status: 202,
+        statusText:
+          "Certificate with reply has been received over ICRC-25 JSON-RPC",
         headers: [],
       },
     };
@@ -302,74 +243,11 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     return this.#options.account;
   }
 
-  async query(
-    canisterId: Principal | string,
-    options: QueryFields,
-  ): Promise<ApiQueryResponse> {
-    // Make sure canisterId is a principal
-    canisterId = Principal.from(canisterId);
-
-    // Upgrade query request to a call sent through signer
-    const submitResponse = await this.call(canisterId, {
-      methodName: options.methodName,
-      arg: options.arg,
-      effectiveCanisterId: canisterId,
-    });
-    const readStateResponse = await this.readState(canisterId, {
-      paths: [
-        [new TextEncoder().encode("request_status"), submitResponse.requestId],
-      ],
-    });
-    const certificate = await Certificate.create({
-      certificate: readStateResponse.certificate,
-      rootKey: this.rootKey,
-      principal: { canisterId },
-      maxAgeInMinutes: MAX_AGE_IN_MINUTES,
-    });
-    const status = certificate.lookup_path([
-      "request_status",
-      submitResponse.requestId,
-      "status",
-    ]);
-    const reply = certificate.lookup_path([
-      "request_status",
-      submitResponse.requestId,
-      "reply",
-    ]);
-    if (
-      status.status !== LookupPathStatus.Found ||
-      new TextDecoder().decode(status.value) !== "replied" ||
-      reply.status !== LookupPathStatus.Found
-    ) {
-      throw new SignerAgentError("Certificate is missing reply");
-    }
-    return {
-      requestId: submitResponse.requestId,
-      status: "replied" as QueryResponseStatus.Replied,
-      reply: {
-        arg: reply.value,
-      },
-      httpDetails: {
-        ok: true,
-        status: 202,
-        statusText:
-          "Certificate with reply has been received over ICRC-25 JSON-RPC",
-        headers: [],
-      },
-    };
-  }
-
   async createReadStateRequest(
     _options: ReadStateOptions,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any> {
-    // Since request is typed as any it shouldn't need any data,
-    // but since agent-js 2.1.3 this would cause a runtime error.
-    return {
-      body: {
-        content: {},
-      },
-    };
+    return { body: { content: {} } };
   }
 
   async readState(
@@ -392,6 +270,7 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     if (!certificate) {
       throw new SignerAgentError("Certificate could not be found");
     }
+    this.#certificates.delete(key);
     return { certificate };
   }
 
@@ -401,27 +280,5 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
 
   replaceAccount(account: Principal) {
     this.#options.account = account;
-  }
-
-  replaceValidation(replaceValidationCanisterId?: Principal) {
-    this.#validationCanisterId = replaceValidationCanisterId;
-  }
-
-  /**
-   * Enable manual triggering of canister calls execution
-   */
-  batch() {
-    this.#autoBatch = false;
-    if (this.#scheduled.slice(-1)[0].length > 0) {
-      this.#scheduled.push([]);
-    }
-  }
-
-  /**
-   * Clear scheduled canister calls and switch back to automatic canister calls execution
-   */
-  clear() {
-    this.#scheduled = [[]];
-    this.#autoBatch = true;
   }
 }

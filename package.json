@@ -67,8 +67,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json"
   },
-  "dependencies": {
-    "@icp-sdk/core": "^5.0.0"
+  "peerDependencies": {
+    "@icp-sdk/core": "^5"
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.1",

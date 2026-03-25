@@ -33,7 +33,7 @@ export interface HeartbeatClientOptions {
   onPendingTimeout: () => void;
   /**
    * Time in milliseconds of not receiving heartbeat responses after which the communication channel is disconnected
-   * @default 2000
+   * @default 5000
    */
   disconnectTimeout?: number;
   /**
@@ -65,7 +65,7 @@ export class HeartbeatClient {
     this.#options = {
       establishTimeout: 10000,
       pendingTimeout: 300000,
-      disconnectTimeout: 2000,
+      disconnectTimeout: 5000,
       statusPollingRate: 300,
       window: globalThis.window,
       crypto: globalThis.crypto,
@@ -182,7 +182,9 @@ export class HeartbeatClient {
   }
 
   #receiveStatusResponse(
-    handler: (event: MessageEvent<JsonRpcResponse<"pending" | "ready">>) => void,
+    handler: (
+      event: MessageEvent<JsonRpcResponse<"pending" | "ready">>,
+    ) => void,
   ): () => void {
     const listener = (event: MessageEvent) => {
       if (

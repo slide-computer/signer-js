@@ -9,8 +9,9 @@ import type {
   JsonRpcResponse,
   Transport,
 } from "./transport.js";
-import { NETWORK_ERROR } from "./errors.js";
 import { fromBase64, toBase64 } from "./utils.js";
+
+const NETWORK_ERROR = 4000;
 
 export type PermissionScope = { method: string } & JsonObject;
 
@@ -19,15 +20,6 @@ export type PermissionState = "denied" | "ask_on_use" | "granted";
 export type SupportedStandard = {
   name: string;
   url: string;
-};
-
-export type SignerDelegation = {
-  delegation: {
-    pubkey: string;
-    expiration: string;
-    targets?: string[];
-  };
-  signature: string;
 };
 
 export class SignerError extends Error {
@@ -286,7 +278,7 @@ export class Signer<T extends Transport = Transport> {
   }): Promise<DelegationChain> {
     const response = await this.sendRequest<
       JsonRpcRequest<"icrc34_delegation", { publicKey: string; targets?: string[]; maxTimeToLive?: string }>,
-      JsonRpcResponse<{ publicKey: string; signerDelegation: SignerDelegation[] }>
+      JsonRpcResponse<{ publicKey: string; signerDelegation: { delegation: { pubkey: string; expiration: string; targets?: string[] }; signature: string }[] }>
     >({
       id: this.#options.crypto.randomUUID(),
       jsonrpc: "2.0",
@@ -342,69 +334,5 @@ export class Signer<T extends Transport = Transport> {
     const contentMap = fromBase64(result.contentMap);
     const certificate = fromBase64(result.certificate);
     return { contentMap, certificate };
-  }
-
-  async batchCallCanister(params: {
-    sender: Principal;
-    validationCanisterId?: Principal;
-    requests: {
-      canisterId: Principal;
-      method: string;
-      arg: Uint8Array;
-      nonce?: Uint8Array;
-    }[][];
-  }): Promise<
-    {
-      result: {
-        contentMap: Uint8Array;
-        certificate: Uint8Array;
-      };
-    }[][]
-  > {
-    const response = await this.sendRequest<
-      JsonRpcRequest<"icrc112_batch_call_canister", {
-        sender: string;
-        validationCanisterId?: string;
-        requests: { canisterId: string; method: string; arg: string; nonce?: string }[][];
-      }>,
-      JsonRpcResponse<{ responses: { contentMap: string; certificate: string }[][] }>
-    >({
-      id: this.#options.crypto.randomUUID(),
-      jsonrpc: "2.0",
-      method: "icrc112_batch_call_canister",
-      params: {
-        sender: params.sender.toText(),
-        validationCanisterId: params.validationCanisterId?.toText(),
-        requests: params.requests.map((requests) =>
-          requests.map((request) => ({
-            canisterId: request.canisterId.toText(),
-            method: request.method,
-            arg: toBase64(request.arg),
-            nonce: request.nonce ? toBase64(request.nonce) : undefined,
-          })),
-        ),
-      },
-    });
-    const result = unwrapResponse(response);
-    if (
-      params.requests.length !== result.responses.length ||
-      params.requests.some(
-        (entries, index) => entries.length !== result.responses[index].length,
-      )
-    ) {
-      throw new SignerError({
-        code: NETWORK_ERROR,
-        message:
-          "Invalid batch call canister response, structure does not match request structure",
-      });
-    }
-    return result.responses.map((responses) =>
-      responses.map((response) => ({
-        result: {
-          contentMap: fromBase64(response.contentMap),
-          certificate: fromBase64(response.certificate),
-        },
-      })),
-    );
   }
 }

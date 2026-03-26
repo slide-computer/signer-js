@@ -73,13 +73,13 @@ Signers vary in what they support. Query the supported standards before making c
 ```ts
 const standards = await signer.getSupportedStandards();
 
-// signer.accounts() requires ICRC-27
+// signer.getAccounts() requires ICRC-27
 const canGetAccounts = standards.some((s) => s.name === "ICRC-27");
 
 // signer.callCanister() requires ICRC-49
 const canCallCanisters = standards.some((s) => s.name === "ICRC-49");
 
-// signer.delegation() requires ICRC-34
+// signer.requestDelegation() requires ICRC-34
 const canDelegate = standards.some((s) => s.name === "ICRC-34");
 
 // Asset wallets need both accounts and canister calls

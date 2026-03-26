@@ -1,14 +1,13 @@
 export {
-  BrowserExtensionTransport,
-  type BrowserExtensionTransportOptions,
-  BrowserExtensionTransportError,
-  type DiscoverBrowserExtensionOptions,
-  type EstablishBrowserExtensionTransportOptions,
-} from "./browserExtensionTransport.js";
-
+	BrowserExtensionChannel,
+	type BrowserExtensionChannelOptions,
+} from './browserExtensionChannel.js';
 export {
-  BrowserExtensionChannel,
-  type BrowserExtensionChannelOptions,
-} from "./browserExtensionChannel.js";
+	BrowserExtensionTransport,
+	BrowserExtensionTransportError,
+	type BrowserExtensionTransportOptions,
+	type DiscoverBrowserExtensionOptions,
+	type EstablishBrowserExtensionTransportOptions,
+} from './browserExtensionTransport.js';
 
-export { type ProviderDetail } from "./types.js";
+export type { ProviderDetail } from './types.js';

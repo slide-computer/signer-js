@@ -7,7 +7,7 @@
   "homepage": "https://github.com/slide-computer/signer-js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/slide-computer/signer-js.git"
+    "url": "git+https://github.com/slide-computer/signer-js.git"
   },
   "bugs": {
     "url": "https://github.com/slide-computer/signer-js/issues"
@@ -38,45 +38,39 @@
     ".": {
       "types": "./lib/esm/index.d.ts",
       "import": "./lib/esm/index.js",
-      "node": "./lib/cjs/index.js",
-      "require": "./lib/cjs/index.js",
       "default": "./lib/esm/index.js"
     },
     "./agent": {
       "types": "./lib/esm/agent/index.d.ts",
       "import": "./lib/esm/agent/index.js",
-      "node": "./lib/cjs/agent/index.js",
-      "require": "./lib/cjs/agent/index.js",
       "default": "./lib/esm/agent/index.js"
     },
     "./web": {
       "types": "./lib/esm/web/index.d.ts",
       "import": "./lib/esm/web/index.js",
-      "node": "./lib/cjs/web/index.js",
-      "require": "./lib/cjs/web/index.js",
       "default": "./lib/esm/web/index.js"
     },
     "./extension": {
       "types": "./lib/esm/extension/index.d.ts",
       "import": "./lib/esm/extension/index.js",
-      "node": "./lib/cjs/extension/index.js",
-      "require": "./lib/cjs/extension/index.js",
       "default": "./lib/esm/extension/index.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json",
-    "test": "vitest run"
+    "build": "tsc -p tsconfig.esm.json && npm run lint:package",
+    "test": "vitest run",
+    "codestyle:check": "biome check",
+    "codestyle:fix": "biome check --write",
+    "lint:package": "publint --strict"
   },
   "peerDependencies": {
     "@icp-sdk/core": "^5"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.9",
     "@tsconfig/node22": "^22.0.5",
     "@types/node": "^25.5.0",
-    "esbuild": "^0.27.4",
-    "eslint": "^10.1.0",
-    "prettier": "^3.8.1",
+    "publint": "^0.3.18",
     "typescript": "^5.9.3",
     "vitest": "^4.1.1"
   },

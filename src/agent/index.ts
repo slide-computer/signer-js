@@ -1,5 +1,5 @@
 export {
-  SignerAgent,
-  type SignerAgentOptions,
-  SignerAgentError,
-} from "./agent.js";
+	SignerAgent,
+	SignerAgentError,
+	type SignerAgentOptions,
+} from './agent.js';

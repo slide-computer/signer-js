@@ -71,7 +71,7 @@ const transport = await BrowserExtensionTransport.findTransport({
 Signers vary in what they support. Query the supported standards before making calls so you can handle unsupported features gracefully:
 
 ```ts
-const standards = await signer.supportedStandards();
+const standards = await signer.getSupportedStandards();
 
 // signer.accounts() requires ICRC-27
 const canGetAccounts = standards.some((s) => s.name === "ICRC-27");
@@ -107,7 +107,7 @@ const signer = new Signer({ transport });
 // Get the user's accounts — some asset wallets return multiple (e.g. NFID),
 // others only one (e.g. OISY).
 // Each account has an `owner` (Principal) and an optional `subaccount`.
-const accounts = await signer.accounts();
+const accounts = await signer.getAccounts();
 const account = accounts[0]; // Let the user choose if there are multiple
 
 // Create an agent for the chosen account's principal.
@@ -147,7 +147,7 @@ const signer = new Signer({ transport });
 
 // Create a session key and request a delegation
 const sessionKey = await ECDSAKeyIdentity.generate();
-const delegationChain = await signer.delegation({
+const delegationChain = await signer.requestDelegation({
   publicKey: sessionKey.getPublicKey().toDer(),
 });
 

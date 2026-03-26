@@ -6,14 +6,10 @@ Library to interact with [ICRC-25](https://github.com/dfinity/wg-identity-authen
 
 A signer is an application that holds private keys and can sign messages on behalf of a user. Each signer chooses which standards to implement, but they typically fall into two categories:
 
-- **Asset wallets** support accounts and canister calls — users approve transactions directly through the signer (e.g. OISY, PrimeVault, Plug).
-- **Authentication providers** support delegations — users grant a session key that can sign on their behalf for a limited time (e.g. Internet Identity).
+- **Asset wallets** support accounts and canister calls — users approve transactions directly through the signer (e.g. [OISY](https://oisy.com), [Plug](https://plugwallet.ooo), [PrimeVault](https://primevault.com)).
+- **Authentication providers** support delegations — users grant a session key that can sign on their behalf for a limited time (e.g. [Internet Identity](https://id.ai)).
 
-A signer can implement any combination of standards, and some support both categories (e.g. NFID).
-
-Known signers include asset wallets like [OISY](https://oisy.com), [NFID](https://nfid.one), [Plug](https://plugwallet.ooo), and [PrimeVault](https://primevault.com), as well as authentication providers like [Internet Identity](https://id.ai).
-
-This library provides a unified interface to interact with all of them.
+Some signers support both (e.g. [NFID](https://nfid.one)). This library provides a unified interface to interact with all of them.
 
 ## Installation
 

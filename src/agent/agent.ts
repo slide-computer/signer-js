@@ -1,11 +1,14 @@
 import {
   type Agent,
   type ApiQueryResponse,
-  Certificate,
   type CallRequest,
+  Cbor,
+  Certificate,
+  Expiry,
   HttpAgent,
   IC_ROOT_KEY,
   type Identity,
+  JSON_KEY_EXPIRY,
   LookupPathStatus,
   type QueryFields,
   type QueryResponseStatus,
@@ -20,31 +23,34 @@ import {
 } from "@icp-sdk/core/agent";
 import { type JsonObject, uint8Equals } from "@icp-sdk/core/candid";
 import { Principal } from "@icp-sdk/core/principal";
-import { type Signer, type Transport, toBase64 } from "../index.js";
-import { decodeCallRequest } from "./utils.js";
+import { type Signer, type Transport } from "../index.js";
+import { z } from "zod";
 
+// IC root key as bytes, used as fallback when agent has no root key
 const ROOT_KEY = new Uint8Array(
   IC_ROOT_KEY.match(/[\da-f]{2}/gi)!.map((h) => parseInt(h, 16)),
 );
+
 const MAX_AGE_IN_MINUTES = 5;
 const INVALID_RESPONSE_MESSAGE = "Received invalid response from signer";
 
+/** Options for creating a {@link SignerAgent}. */
 export interface SignerAgentOptions<T extends Transport = Transport> {
-  /**
-   * Signer instance that should be used to send ICRC-25 JSON-RPC messages
-   */
+  /** The {@link Signer} used to send ICRC-49 canister call requests. */
   signer: Signer<T>;
-  /**
-   * Principal of account that should be used to make calls
-   */
+  /** The principal of the account on whose behalf canister calls are made. */
   account: Principal;
   /**
-   * Optional, used to fetch root key
-   * @default uses {@link HttpAgent} by default
+   * An {@link HttpAgent} used for fetching the root key and status.
+   * @default A new HttpAgent connected to the IC mainnet.
    */
   agent?: HttpAgent;
 }
 
+/**
+ * Error thrown by {@link SignerAgent} when a signer returns an invalid
+ * response or certificate validation fails.
+ */
 export class SignerAgentError extends Error {}
 
 interface VerifiedCall {
@@ -55,6 +61,23 @@ interface VerifiedCall {
   reply: Uint8Array;
 }
 
+/**
+ * An {@link Agent} implementation that routes canister calls through a
+ * {@link Signer} for user approval. Drop-in replacement for {@link HttpAgent}
+ * when canister calls need to be signed by an external signer.
+ *
+ * Calls are sent to the signer via ICRC-49, and the returned content map
+ * and certificate are validated before being returned to the caller.
+ *
+ * Use {@link SignerAgent.create} or {@link SignerAgent.createSync} to
+ * construct an instance — the constructor is private.
+ *
+ * @example
+ * ```ts
+ * const agent = await SignerAgent.create({ signer, account });
+ * const result = await agent.update(canisterId, { methodName: "transfer", arg, effectiveCanisterId: canisterId });
+ * ```
+ */
 export class SignerAgent<T extends Transport = Transport> implements Agent {
   static #isInternalConstructing: boolean = false;
   readonly #options: Required<SignerAgentOptions>;
@@ -70,14 +93,20 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     this.#options = options;
   }
 
+  /** The root key used for certificate verification. */
   get rootKey() {
     return this.#options.agent.rootKey ?? ROOT_KEY;
   }
 
+  /** The signer this agent routes calls through. */
   get signer(): Signer<T> {
     return this.#options.signer as unknown as Signer<T>;
   }
 
+  /**
+   * Creates a new SignerAgent, asynchronously initializing the
+   * underlying HttpAgent if one is not provided.
+   */
   static async create<T extends Transport>(options: SignerAgentOptions<T>) {
     SignerAgent.#isInternalConstructing = true;
     return new SignerAgent({
@@ -86,6 +115,10 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     }) as SignerAgent<T>;
   }
 
+  /**
+   * Creates a new SignerAgent synchronously.
+   * Use this when you already have an HttpAgent or don't need async initialization.
+   */
   static createSync<T extends Transport>(options: SignerAgentOptions<T>) {
     SignerAgent.#isInternalConstructing = true;
     return new SignerAgent({
@@ -95,17 +128,19 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
   }
 
   /**
-   * Sends a canister call through the signer, validates the response,
-   * and returns the verified certificate with the reply.
+   * Sends a canister call through the signer, validates the content map
+   * and certificate, and returns the verified result.
+   *
+   * Calls are queued to ensure sequential execution — the signer's
+   * transport channel is opened first to avoid blocking popups.
    */
   async #sendAndVerify(
     canisterId: Principal,
     fields: CallOptions,
   ): Promise<VerifiedCall> {
-    // Open the transport channel first to avoid blocking popups
     await this.#options.signer.openChannel();
 
-    // Queue the call to ensure sequential execution
+    // Queue calls to ensure sequential execution through the signer
     const response = await new Promise<
       Awaited<ReturnType<Signer["callCanister"]>>
     >((resolve, reject) => {
@@ -116,13 +151,24 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
             sender: this.#options.account,
             method: fields.methodName,
             arg: fields.arg,
+            nonce: fields.nonce,
           })
           .then(resolve, reject),
       );
     });
 
-    // Validate content map
-    const requestBody = decodeCallRequest(response.contentMap);
+    // Decode CBOR content map and reconstruct the Expiry
+    // (Expiry has a private constructor, so we use the JSON round-trip)
+    const decoded = Cbor.decode<Record<string, any>>(response.contentMap);
+    const requestBody = {
+      ...decoded,
+      canister_id: Principal.from(decoded.canister_id),
+      ingress_expiry: Expiry.fromJSON(
+        JSON.stringify({ [JSON_KEY_EXPIRY]: String(decoded.ingress_expiry) }),
+      ),
+    } as CallRequest;
+
+    // Verify the content map matches what we requested
     const contentMapMatchesRequest =
       SubmitRequestType.Call === requestBody.request_type &&
       canisterId.toText() === requestBody.canister_id.toText() &&
@@ -134,7 +180,7 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
       throw new SignerAgentError(INVALID_RESPONSE_MESSAGE);
     }
 
-    // Validate certificate
+    // Validate the certificate against the IC root key
     const requestId = requestIdOf(requestBody);
     const certificate = await Certificate.create({
       certificate: response.certificate,
@@ -145,7 +191,7 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
       throw new SignerAgentError(INVALID_RESPONSE_MESSAGE, { cause });
     });
 
-    // Extract reply
+    // Extract the reply from the certified state tree
     const replyLookup = certificate.lookup_path([
       "request_status",
       requestId,
@@ -155,8 +201,11 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
       throw new SignerAgentError(INVALID_RESPONSE_MESSAGE);
     }
 
-    // Store raw certificate for readState lookups
-    this.#certificates.set(toBase64(requestId), response.certificate);
+    // Store raw certificate for readState lookups, deleted on first read
+    this.#certificates.set(
+      z.util.uint8ArrayToBase64(requestId),
+      response.certificate,
+    );
 
     return {
       requestId,
@@ -167,6 +216,10 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     };
   }
 
+  /**
+   * Sends a canister call through the signer.
+   * Returns the request ID and a synthetic HTTP response.
+   */
   async call(
     canisterId: Principal | string,
     fields: CallOptions,
@@ -189,9 +242,17 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     };
   }
 
+  /**
+   * Executes a canister update call and returns the certified result.
+   * Combines {@link call} with certificate validation and reply extraction.
+   *
+   * @param _pollingOptions - Ignored. The signer already returns the
+   *   certificate with the reply in a single round-trip.
+   */
   async update(
     canisterId: Principal | string,
     fields: CallOptions,
+    _pollingOptions?: unknown,
   ): Promise<UpdateResult> {
     canisterId = Principal.from(canisterId);
     const { requestBody, certificate, rawCertificate, reply } =
@@ -211,9 +272,17 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     };
   }
 
+  /**
+   * Executes a query by upgrading it to a canister call through the signer.
+   * The signer signs and submits the call, and the reply is extracted
+   * from the certified response.
+   *
+   * @param _identity - Ignored. The signer manages identity internally.
+   */
   async query(
     canisterId: Principal | string,
     options: QueryFields,
+    _identity?: Identity | Promise<Identity>,
   ): Promise<ApiQueryResponse> {
     canisterId = Principal.from(canisterId);
     const { requestId, reply } = await this.#sendAndVerify(canisterId, {
@@ -235,26 +304,35 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     };
   }
 
+  /** Fetches the IC root key via the underlying HttpAgent. */
   async fetchRootKey(): Promise<Uint8Array> {
     return this.#options.agent.fetchRootKey();
   }
 
+  /** Returns the account principal this agent makes calls on behalf of. */
   async getPrincipal(): Promise<Principal> {
     return this.#options.account;
   }
 
+  /** @internal Required by the Agent interface but not used for signer calls. */
   async createReadStateRequest(
     _options: ReadStateOptions,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> {
+    _identity?: Identity,
+  ): Promise<unknown> {
     return { body: { content: {} } };
   }
 
+  /**
+   * Returns the raw certificate for a previously completed call.
+   * The certificate is deleted after being read (single-use).
+   *
+   * Only supports `request_status` paths for request IDs that were
+   * returned by a prior {@link call}, {@link update}, or {@link query}.
+   */
   async readState(
     _canisterId: Principal | string,
     options: ReadStateOptions,
     _identity?: Identity | Promise<Identity>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     _request?: any,
   ): Promise<ReadStateResponse> {
     if (
@@ -265,7 +343,7 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
       throw new SignerAgentError("Given paths are not supported");
     }
     const requestId = options.paths[0][1] as RequestId;
-    const key = toBase64(requestId);
+    const key = z.util.uint8ArrayToBase64(requestId);
     const certificate = this.#certificates.get(key);
     if (!certificate) {
       throw new SignerAgentError("Certificate could not be found");
@@ -274,10 +352,12 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
     return { certificate };
   }
 
+  /** Queries the IC replica status via the underlying HttpAgent. */
   async status(): Promise<JsonObject> {
     return this.#options.agent.status();
   }
 
+  /** Replaces the account principal used for subsequent calls. */
   replaceAccount(account: Principal) {
     this.#options.account = account;
   }

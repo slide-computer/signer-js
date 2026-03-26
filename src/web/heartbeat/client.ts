@@ -1,4 +1,4 @@
-import { isJsonRpcResponse, type JsonRpcResponse } from "../../transport.js";
+import { JsonRpcResponseSchema, type JsonRpcResponse } from "../../transport.js";
 
 export interface HeartbeatClientOptions {
   /**
@@ -87,7 +87,7 @@ export class HeartbeatClient {
 
     // Establish communication channel if a response is received for any pending id
     const listener = this.#receiveStatusResponse((response) => {
-      if ("result" in response.data && pending.includes(response.data.id)) {
+      if ("result" in response.data && response.data.id !== null && pending.includes(response.data.id)) {
         pending = [];
         listener();
         clearInterval(interval);
@@ -161,6 +161,7 @@ export class HeartbeatClient {
     const listener = this.#receiveStatusResponse((response) => {
       if (
         "result" in response.data &&
+        response.data.id !== null &&
         response.origin === origin &&
         consume(response.data.id)
       ) {
@@ -183,13 +184,13 @@ export class HeartbeatClient {
 
   #receiveStatusResponse(
     handler: (
-      event: MessageEvent<JsonRpcResponse<"pending" | "ready">>,
+      event: MessageEvent<JsonRpcResponse & { result: "pending" | "ready" }>,
     ) => void,
   ): () => void {
     const listener = (event: MessageEvent) => {
       if (
         (event.source === this.#options.signerWindow &&
-          isJsonRpcResponse(event.data) &&
+          JsonRpcResponseSchema.safeParse(event.data).success &&
           "result" in event.data &&
           event.data.result === "pending") ||
         event.data.result === "ready"

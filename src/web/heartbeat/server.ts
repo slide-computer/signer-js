@@ -1,4 +1,4 @@
-import { isJsonRpcRequest } from "../../transport.js";
+import { JsonRpcRequestSchema } from "../../transport.js";
 
 export interface HeartbeatServerOptions {
   /**
@@ -135,7 +135,7 @@ export class HeartbeatServer {
   #receiveStatusRequest(handler: (event: MessageEvent) => void): () => void {
     const listener = (event: MessageEvent) => {
       if (
-        !isJsonRpcRequest(event.data) ||
+        !JsonRpcRequestSchema.safeParse(event.data).success ||
         event.data.method !== "icrc29_status" ||
         (this.#options.allowedOrigin !== null &&
           event.origin !== this.#options.allowedOrigin)

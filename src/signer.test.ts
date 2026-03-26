@@ -158,7 +158,7 @@ describe("Signer", () => {
         },
       }));
 
-      const standards = await signer.supportedStandards();
+      const standards = await signer.getSupportedStandards();
 
       expect(standards).toEqual([
         { name: "ICRC-25", url: "https://example.com" },
@@ -197,7 +197,7 @@ describe("Signer", () => {
         },
       }));
 
-      const result = await signer.permissions();
+      const result = await signer.getPermissions();
 
       expect(result).toEqual([
         { scope: { method: "icrc27_accounts" }, state: "denied" },
@@ -216,7 +216,7 @@ describe("Signer", () => {
         },
       }));
 
-      const accounts = await signer.accounts();
+      const accounts = await signer.getAccounts();
 
       expect(accounts).toHaveLength(1);
       expect(accounts[0].owner.toText()).toBe(principal.toText());
@@ -237,7 +237,7 @@ describe("Signer", () => {
         },
       }));
 
-      const accounts = await signer.accounts();
+      const accounts = await signer.getAccounts();
 
       expect(accounts[0].subaccount).toBeInstanceOf(Uint8Array);
       expect(accounts[0].subaccount![31]).toBe(1);
@@ -275,7 +275,7 @@ describe("Signer", () => {
         error: { code: 3000, message: "Permission not granted" },
       }));
 
-      await expect(signer.supportedStandards()).rejects.toSatisfy(
+      await expect(signer.getSupportedStandards()).rejects.toSatisfy(
         (error: unknown) => {
           expect(error).toBeInstanceOf(SignerError);
           expect((error as SignerError).code).toBe(3000);
@@ -311,7 +311,7 @@ describe("Signer", () => {
 
       const signer = new Signer({ transport, crypto: mockCrypto });
 
-      await expect(signer.supportedStandards()).rejects.toSatisfy(
+      await expect(signer.getSupportedStandards()).rejects.toSatisfy(
         (error: unknown) => {
           expect(error).toBeInstanceOf(SignerError);
           expect((error as SignerError).code).toBe(NETWORK_ERROR);
@@ -335,7 +335,7 @@ describe("Signer", () => {
       };
       const signer = new Signer({ transport, crypto: mockCrypto });
 
-      await expect(signer.supportedStandards()).rejects.toSatisfy(
+      await expect(signer.getSupportedStandards()).rejects.toSatisfy(
         (error: unknown) => {
           expect(error).toBeInstanceOf(SignerError);
           expect((error as SignerError).code).toBe(NETWORK_ERROR);
@@ -368,7 +368,7 @@ describe("Signer", () => {
         crypto: mockCrypto,
         derivationOrigin: "https://example.com",
       });
-      await signer.supportedStandards();
+      await signer.getSupportedStandards();
 
       expect(sentRequest?.params).toHaveProperty(
         "icrc95DerivationOrigin",
@@ -393,7 +393,7 @@ describe("Signer", () => {
       };
 
       const signer = new Signer({ transport, crypto: mockCrypto });
-      await signer.supportedStandards();
+      await signer.getSupportedStandards();
 
       expect(
         (sentRequest?.params as Record<string, unknown>)?.[
@@ -439,7 +439,7 @@ describe("Signer", () => {
       };
 
       const signer = new Signer({ transport, crypto: mockCrypto });
-      const standards = await signer.supportedStandards();
+      const standards = await signer.getSupportedStandards();
 
       expect(standards).toEqual([{ name: "correct", url: "" }]);
     });

@@ -1,4 +1,20 @@
-export * from "./postMessageTransport.js";
-export * from "./postMessageChannel.js";
-export * from "./heartbeat/index.js";
-export * from "./utils.js";
+export {
+  PostMessageTransport,
+  type PostMessageTransportOptions,
+  PostMessageTransportError,
+} from "./postMessageTransport.js";
+
+export {
+  PostMessageChannel,
+  type PostMessageChannelOptions,
+} from "./postMessageChannel.js";
+
+export {
+  HeartbeatClient,
+  type HeartbeatClientOptions,
+} from "./heartbeat/client.js";
+
+export {
+  HeartbeatServer,
+  type HeartbeatServerOptions,
+} from "./heartbeat/server.js";

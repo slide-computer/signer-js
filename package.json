@@ -1,9 +1,9 @@
 {
-  "name": "@slide-computer/signer",
-  "version": "4.2.2",
+  "name": "@icp-sdk/signer",
+  "version": "5.2.0",
   "author": "Slide",
-  "license": "MIT",
-  "description": "JavaScript and TypeScript library to interact with signers on the Internet Computer",
+  "license": "Apache-2.0",
+  "description": "Library to interact with signers on the Internet Computer",
   "homepage": "https://github.com/slide-computer/signer-js",
   "repository": {
     "type": "git",
@@ -79,5 +79,8 @@
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.1"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
   }
 }

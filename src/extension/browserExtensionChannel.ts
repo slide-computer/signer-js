@@ -1,24 +1,32 @@
 import {
   type Channel,
-  isJsonRpcResponse,
+  JsonRpcResponseSchema,
   type JsonRpcRequest,
   type JsonRpcResponse,
 } from "../transport.js";
 import type { ProviderDetail } from "./types.js";
 import { BrowserExtensionTransportError } from "./browserExtensionTransport.js";
 
+/** Options for creating a {@link BrowserExtensionChannel}. */
 export interface BrowserExtensionChannelOptions {
-  /**
-   * Provider details received during browser extension discovery
-   */
+  /** The provider details obtained during extension discovery. */
   providerDetail: ProviderDetail;
   /**
-   * Relying party window, used to listen for incoming events
+   * The window to listen for extension events on.
    * @default globalThis.window
    */
   window?: Window;
 }
 
+/**
+ * A {@link Channel} implementation that communicates with a browser
+ * extension signer via the ICRC-94 provider API.
+ *
+ * Messages are sent through `providerDetail.sendMessage` and responses
+ * are validated as JSON-RPC before being dispatched to listeners.
+ * The channel is automatically closed if the extension fires an
+ * `icrc94:unexpectedlyClosed` event.
+ */
 export class BrowserExtensionChannel implements Channel {
   readonly #closeListeners = new Set<() => void>();
   readonly #responseListeners = new Set<(response: JsonRpcResponse) => void>();
@@ -31,6 +39,7 @@ export class BrowserExtensionChannel implements Channel {
       ...options,
     };
 
+    // Listen for unexpected extension closure
     const closeListener = () => {
       this.#options.window.removeEventListener(
         "icrc94:unexpectedlyClosed",
@@ -45,6 +54,7 @@ export class BrowserExtensionChannel implements Channel {
     );
   }
 
+  /** Whether this channel has been closed. */
   get closed() {
     return this.#closed;
   }
@@ -68,6 +78,11 @@ export class BrowserExtensionChannel implements Channel {
     }
   }
 
+  /**
+   * Sends a JSON-RPC request to the extension via `providerDetail.sendMessage`.
+   * The response is validated as JSON-RPC before being dispatched.
+   * Non-JSON-RPC responses are silently ignored.
+   */
   async send(request: JsonRpcRequest): Promise<void> {
     if (this.#closed) {
       throw new BrowserExtensionTransportError(
@@ -75,13 +90,15 @@ export class BrowserExtensionChannel implements Channel {
       );
     }
 
-    const response = await this.#options.providerDetail.sendMessage(request);
-    if (!isJsonRpcResponse(response)) {
+    const raw = await this.#options.providerDetail.sendMessage(request);
+    const parsed = JsonRpcResponseSchema.safeParse(raw);
+    if (!parsed.success) {
       return;
     }
-    this.#responseListeners.forEach((listener) => listener(response));
+    this.#responseListeners.forEach((listener) => listener(parsed.data));
   }
 
+  /** Dismisses the extension and notifies all close listeners. */
   async close(): Promise<void> {
     if (this.#closed) {
       return;

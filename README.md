@@ -1,6 +1,6 @@
-# @slide-computer/signer
+# @icp-sdk/signer
 
-JavaScript and TypeScript library to interact with [ICRC-25](https://github.com/dfinity/wg-identity-authentication/blob/main/topics/icrc_25_signer_interaction_standard.md) compliant signers on the Internet Computer.
+Library to interact with [ICRC-25](https://github.com/dfinity/wg-identity-authentication/blob/main/topics/icrc_25_signer_interaction_standard.md) compliant signers on the Internet Computer.
 
 ## What are signers?
 
@@ -18,15 +18,15 @@ This library provides a unified interface to interact with all of them.
 ## Installation
 
 ```shell
-npm install @slide-computer/signer
+npm install @icp-sdk/signer
 ```
 
 ## Import Paths
 
-- `@slide-computer/signer` — `Signer` for standardized signer interaction
-- `@slide-computer/signer/agent` — `SignerAgent` as a drop-in replacement for `HttpAgent`
-- `@slide-computer/signer/web` — `PostMessageTransport` for web-based signers
-- `@slide-computer/signer/extension` — `BrowserExtensionTransport` for browser extension signers
+- `@icp-sdk/signer` — `Signer` for standardized signer interaction
+- `@icp-sdk/signer/agent` — `SignerAgent` as a drop-in replacement for `HttpAgent`
+- `@icp-sdk/signer/web` — `PostMessageTransport` for web-based signers
+- `@icp-sdk/signer/extension` — `BrowserExtensionTransport` for browser extension signers
 
 ## Connecting to a Signer
 
@@ -37,8 +37,8 @@ Two transport types are supported. Web-based signers (like OISY, NFID, Internet 
 The [ICRC-29](https://github.com/dfinity/wg-identity-authentication/blob/main/topics/icrc_29_window_post_message_transport.md) post message transport communicates with signers that run as web applications. A window is opened to the signer's URL, and messages are exchanged via `postMessage`.
 
 ```ts
-import { Signer } from "@slide-computer/signer";
-import { PostMessageTransport } from "@slide-computer/signer/web";
+import { Signer } from "@icp-sdk/signer";
+import { PostMessageTransport } from "@icp-sdk/signer/web";
 
 const transport = new PostMessageTransport({ url: SIGNER_URL });
 const signer = new Signer({ transport });
@@ -49,8 +49,8 @@ const signer = new Signer({ transport });
 The [ICRC-94](https://github.com/dfinity/wg-identity-authentication/blob/main/topics/icrc_94_multi_injected_provider_discovery.md) transport communicates with signers installed as browser extensions. Extensions announce themselves and are discovered automatically.
 
 ```ts
-import { Signer } from "@slide-computer/signer";
-import { BrowserExtensionTransport } from "@slide-computer/signer/extension";
+import { Signer } from "@icp-sdk/signer";
+import { BrowserExtensionTransport } from "@icp-sdk/signer/extension";
 
 // Discover all installed extension signers
 const providerDetails = await BrowserExtensionTransport.discover();
@@ -100,9 +100,9 @@ const supportsFungibleTokens = standards.some((s) => s.name === "ICRC-1");
 Asset wallets allow users to approve transactions. Use `SignerAgent` as a drop-in replacement for `HttpAgent` — it routes canister calls through the signer for user approval.
 
 ```ts
-import { Signer } from "@slide-computer/signer";
-import { PostMessageTransport } from "@slide-computer/signer/web";
-import { SignerAgent } from "@slide-computer/signer/agent";
+import { Signer } from "@icp-sdk/signer";
+import { PostMessageTransport } from "@icp-sdk/signer/web";
+import { SignerAgent } from "@icp-sdk/signer/agent";
 
 // Connect to an asset wallet
 const transport = new PostMessageTransport({ url: "https://oisy.com/sign" });
@@ -140,8 +140,8 @@ await icpLedger.transfer({
 Authentication providers issue delegations — temporary keys that can sign on behalf of the user. This is useful for session-based authentication where individual transaction approval is not needed.
 
 ```ts
-import { Signer } from "@slide-computer/signer";
-import { PostMessageTransport } from "@slide-computer/signer/web";
+import { Signer } from "@icp-sdk/signer";
+import { PostMessageTransport } from "@icp-sdk/signer/web";
 import { ECDSAKeyIdentity, DelegationIdentity } from "@icp-sdk/core/identity";
 import { HttpAgent } from "@icp-sdk/core/agent";
 
@@ -166,4 +166,4 @@ This package requires the `node16` (or later) [`moduleResolution`](https://www.t
 
 ## License
 
-This project is licensed under the MIT license.
+This project is licensed under the Apache-2.0 license.

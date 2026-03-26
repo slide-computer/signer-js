@@ -1,25 +1,36 @@
-import type { JsonArray, JsonObject, JsonValue } from "@icp-sdk/core/candid";
+import { z } from "zod";
 
-export type JsonRpcError = {
-  code: number;
-  message: string;
-  data?: JsonValue;
-};
+const zId = z.union([z.string(), z.number(), z.null()]);
 
-export type JsonRpcRequest<
-  Method = string,
-  Params extends JsonObject | JsonArray = JsonObject | JsonArray,
-> = {
-  jsonrpc: "2.0";
-  id?: string | number;
-  method: Method;
-  params?: Params;
-};
+export const JsonRpcErrorSchema = z.object({
+  code: z.coerce.number().pipe(z.int()),
+  message: z.coerce.string(),
+  data: z.json().optional(),
+});
 
-export type JsonRpcResponse<Result extends JsonValue = JsonValue> = {
-  jsonrpc: "2.0";
-  id: string | number;
-} & ({ result: Result } | { error: JsonRpcError });
+export const JsonRpcRequestSchema = z.object({
+  jsonrpc: z.literal("2.0"),
+  id: zId.optional(),
+  method: z.coerce.string(),
+  params: z.union([z.array(z.json()), z.looseObject({})]).optional(),
+});
+
+export const JsonRpcResponseSchema = z.union([
+  z.object({
+    jsonrpc: z.literal("2.0"),
+    id: zId,
+    result: z.unknown(),
+  }),
+  z.object({
+    jsonrpc: z.literal("2.0"),
+    id: zId,
+    error: JsonRpcErrorSchema,
+  }),
+]);
+
+export type JsonRpcError = z.infer<typeof JsonRpcErrorSchema>;
+export type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>;
+export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>;
 
 export interface Channel {
   closed: boolean;
@@ -39,21 +50,3 @@ export interface Channel {
 export interface Transport {
   establishChannel(): Promise<Channel>;
 }
-
-export const isJsonRpcRequest = (message: unknown): message is JsonRpcRequest =>
-  typeof message === "object" &&
-  !!message &&
-  "jsonrpc" in message &&
-  message.jsonrpc === "2.0" &&
-  "method" in message &&
-  typeof message.method === "string";
-
-export const isJsonRpcResponse = (
-  message: unknown,
-): message is JsonRpcResponse =>
-  typeof message === "object" &&
-  !!message &&
-  "jsonrpc" in message &&
-  message.jsonrpc === "2.0" &&
-  "id" in message &&
-  (typeof message.id === "string" || typeof message.id === "number");

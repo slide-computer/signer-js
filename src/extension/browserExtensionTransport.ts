@@ -5,30 +5,56 @@ import {
 } from "./browserExtensionChannel.js";
 import type { ProviderDetail } from "./types.js";
 
+/** Error thrown by {@link BrowserExtensionTransport} for transport-level failures. */
 export class BrowserExtensionTransportError extends Error {}
 
-export interface BrowserExtensionTransportOptions extends BrowserExtensionChannelOptions {}
+/** Options for creating a {@link BrowserExtensionTransport}. */
+export interface BrowserExtensionTransportOptions
+  extends BrowserExtensionChannelOptions {}
 
+/** Options for {@link BrowserExtensionTransport.discover}. */
 export interface DiscoverBrowserExtensionOptions {
   /**
-   * Time in milliseconds to wait for all browser extensions to send an icrc94:announceProvider event
+   * Time in milliseconds to wait for browser extensions to announce themselves
+   * via `icrc94:announceProvider` events.
    * @default 100
    */
   discoveryDuration?: number;
   /**
-   * Relying party window, used to listen for incoming events
+   * The window to listen for extension events on.
    * @default globalThis.window
    */
   window?: Window;
 }
 
+/** Options for {@link BrowserExtensionTransport.findTransport}. */
 export interface EstablishBrowserExtensionTransportOptions
   extends
     DiscoverBrowserExtensionOptions,
     Omit<BrowserExtensionTransportOptions, "providerDetail"> {
+  /** The UUID of the browser extension to connect to. */
   uuid: string;
 }
 
+/**
+ * ICRC-94 transport for communicating with browser extension signers.
+ *
+ * Browser extensions announce themselves via `icrc94:announceProvider`
+ * window events. Use {@link discover} to find installed extensions, or
+ * {@link findTransport} to connect to a specific one by UUID.
+ *
+ * @see https://github.com/dfinity/wg-identity-authentication/blob/main/topics/icrc_94_multi_injected_provider_discovery.md
+ *
+ * @example
+ * ```ts
+ * // Discover all installed extensions
+ * const providers = await BrowserExtensionTransport.discover();
+ *
+ * // Or connect to a specific extension by UUID
+ * const transport = await BrowserExtensionTransport.findTransport({ uuid: "..." });
+ * const signer = new Signer({ transport });
+ * ```
+ */
 export class BrowserExtensionTransport implements Transport {
   readonly #options: Required<BrowserExtensionTransportOptions>;
 
@@ -39,6 +65,13 @@ export class BrowserExtensionTransport implements Transport {
     };
   }
 
+  /**
+   * Discovers all installed browser extension signers by dispatching
+   * an `icrc94:requestProvider` event and collecting `icrc94:announceProvider`
+   * responses. Waits for `discoveryDuration` ms before returning.
+   *
+   * @returns The discovered extension providers, deduplicated by UUID.
+   */
   static async discover({
     discoveryDuration = 100,
     window = globalThis.window,
@@ -50,7 +83,6 @@ export class BrowserExtensionTransport implements Transport {
           (providerDetail) => providerDetail.uuid === event.detail.uuid,
         )
       ) {
-        // Avoid duplicates
         return;
       }
       providerDetails.push(event.detail);
@@ -60,6 +92,12 @@ export class BrowserExtensionTransport implements Transport {
     return providerDetails;
   }
 
+  /**
+   * Discovers extensions and connects to the one matching the given UUID.
+   *
+   * @throws {BrowserExtensionTransportError} If no extension with the given
+   *   UUID is found.
+   */
   static async findTransport(
     options: EstablishBrowserExtensionTransportOptions,
   ): Promise<BrowserExtensionTransport> {
@@ -75,6 +113,7 @@ export class BrowserExtensionTransport implements Transport {
     return new BrowserExtensionTransport({ ...options, providerDetail });
   }
 
+  /** Creates a new {@link BrowserExtensionChannel} for this extension. */
   async establishChannel(): Promise<BrowserExtensionChannel> {
     return new BrowserExtensionChannel(this.#options);
   }

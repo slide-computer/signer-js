@@ -1,8 +1,8 @@
 import {
 	type Channel,
+	isJsonRpcResponse,
 	type JsonRpcRequest,
 	type JsonRpcResponse,
-	JsonRpcResponseSchema,
 } from '../transport.js';
 import { BrowserExtensionTransportError } from './browserExtensionTransport.js';
 import type { ProviderDetail } from './types.js';
@@ -82,12 +82,11 @@ export class BrowserExtensionChannel implements Channel {
 			throw new BrowserExtensionTransportError('Communication channel is closed');
 		}
 
-		const raw = await this.#options.providerDetail.sendMessage(request);
-		const parsed = JsonRpcResponseSchema.safeParse(raw);
-		if (!parsed.success) {
+		const response = await this.#options.providerDetail.sendMessage(request);
+		if (!isJsonRpcResponse(response)) {
 			return;
 		}
-		for (const listener of this.#responseListeners) listener(parsed.data);
+		for (const listener of this.#responseListeners) listener(response);
 	}
 
 	/** Dismisses the extension and notifies all close listeners. */

@@ -1,18 +1,51 @@
 import type { PublicKey, Signature } from '@icp-sdk/core/agent';
 import { Delegation, DelegationChain } from '@icp-sdk/core/identity';
 import { Principal } from '@icp-sdk/core/principal';
-import { z } from 'zod';
-import {
-	type Channel,
-	type JsonRpcError,
-	JsonRpcErrorSchema,
-	type JsonRpcRequest,
-	type JsonRpcResponse,
-	type Transport,
+import type {
+	Channel,
+	JsonRpcError,
+	JsonRpcRequest,
+	JsonRpcResponse,
+	Transport,
 } from './transport.js';
 
 const GENERIC_ERROR = 1000;
 const NETWORK_ERROR = 4000;
+
+// Base64 helpers — use native Uint8Array methods when available, fallback to btoa/atob
+const toBase64 = (bytes: Uint8Array): string => {
+	if ('toBase64' in bytes && typeof bytes.toBase64 === 'function') {
+		return bytes.toBase64();
+	}
+	let binary = '';
+	for (let i = 0; i < bytes.byteLength; i++) {
+		binary += String.fromCharCode(bytes[i]);
+	}
+	return globalThis.btoa(binary);
+};
+
+const fromBase64 = (str: string): Uint8Array => {
+	if ('fromBase64' in Uint8Array && typeof Uint8Array.fromBase64 === 'function') {
+		return Uint8Array.fromBase64(str);
+	}
+	const binary = globalThis.atob(str);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) {
+		bytes[i] = binary.charCodeAt(i);
+	}
+	return bytes;
+};
+
+// Helpers to safely read fields from unknown response data
+const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+	typeof value === 'object' && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: undefined;
+
+const asString = (value: unknown): string | undefined =>
+	typeof value === 'string' ? value : undefined;
+
+const asArray = (value: unknown): unknown[] | undefined => (Array.isArray(value) ? value : undefined);
 
 /**
  * A permission scope identifies a method and optionally additional
@@ -58,17 +91,6 @@ export class SignerError extends Error {
 		this.data = error.data;
 	}
 }
-
-// Codecs for bidirectional wire format conversion
-const zBase64 = z.codec(z.base64(), z.custom<Uint8Array>(), {
-	decode: (s) => z.util.base64ToUint8Array(s),
-	encode: (b) => z.util.uint8ArrayToBase64(b),
-});
-
-const zPrincipal = z.codec(z.string(), z.custom<Principal>(), {
-	decode: (s) => Principal.fromText(s),
-	encode: (p) => p.toText(),
-});
 
 /** Options for creating a {@link Signer} instance. */
 export interface SignerOptions<T extends Transport> {
@@ -185,11 +207,18 @@ export class Signer<T extends Transport = Transport> {
 	async getSupportedStandards(): Promise<SupportedStandard[]> {
 		return this.#rpc({
 			method: 'icrc25_supported_standards',
-			decode: z
-				.object({
-					supportedStandards: z.array(z.object({ name: z.string(), url: z.string() })),
-				})
-				.transform((r) => r.supportedStandards),
+			decode: (result) => {
+				const r = asRecord(result);
+				const standards = asArray(r?.supportedStandards);
+				if (!standards) throw new Error('Expected supportedStandards array');
+				return standards.map((item) => {
+					const obj = asRecord(item);
+					const name = asString(obj?.name);
+					const url = asString(obj?.url);
+					if (name === undefined || url === undefined) throw new Error('Expected { name, url }');
+					return { name, url };
+				});
+			},
 		});
 	}
 
@@ -206,17 +235,21 @@ export class Signer<T extends Transport = Transport> {
 		return this.#rpc({
 			method: 'icrc25_request_permissions',
 			params: scopes,
-			encode: z.array(z.custom<PermissionScope>()).transform((scopes) => ({ scopes })),
-			decode: z
-				.object({
-					scopes: z.array(
-						z.object({
-							scope: z.looseObject({ method: z.string() }),
-							state: z.enum(['denied', 'ask_on_use', 'granted']),
-						}),
-					),
-				})
-				.transform((r) => r.scopes),
+			encode: (scopes) => ({ scopes }),
+			decode: (result) => {
+				const r = asRecord(result);
+				const scopes = asArray(r?.scopes);
+				if (!scopes) throw new Error('Expected scopes array');
+				return scopes.map((item) => {
+					const obj = asRecord(item);
+					const scope = asRecord(obj?.scope);
+					const state = asString(obj?.state);
+					if (!scope || typeof scope.method !== 'string' || !state) {
+						throw new Error('Expected { scope: { method }, state }');
+					}
+					return { scope: scope as PermissionScope, state: state as PermissionState };
+				});
+			},
 		});
 	}
 
@@ -228,16 +261,20 @@ export class Signer<T extends Transport = Transport> {
 	async getPermissions(): Promise<Array<{ scope: PermissionScope; state: PermissionState }>> {
 		return this.#rpc({
 			method: 'icrc25_permissions',
-			decode: z
-				.object({
-					scopes: z.array(
-						z.object({
-							scope: z.looseObject({ method: z.string() }),
-							state: z.enum(['denied', 'ask_on_use', 'granted']),
-						}),
-					),
-				})
-				.transform((r) => r.scopes),
+			decode: (result) => {
+				const r = asRecord(result);
+				const scopes = asArray(r?.scopes);
+				if (!scopes) throw new Error('Expected scopes array');
+				return scopes.map((item) => {
+					const obj = asRecord(item);
+					const scope = asRecord(obj?.scope);
+					const state = asString(obj?.state);
+					if (!scope || typeof scope.method !== 'string' || !state) {
+						throw new Error('Expected { scope: { method }, state }');
+					}
+					return { scope: scope as PermissionScope, state: state as PermissionState };
+				});
+			},
 		});
 	}
 
@@ -252,11 +289,21 @@ export class Signer<T extends Transport = Transport> {
 	async getAccounts(): Promise<Array<{ owner: Principal; subaccount?: Uint8Array }>> {
 		return this.#rpc({
 			method: 'icrc27_accounts',
-			decode: z
-				.object({
-					accounts: z.array(z.object({ owner: zPrincipal, subaccount: zBase64.optional() })),
-				})
-				.transform((r) => r.accounts),
+			decode: (result) => {
+				const r = asRecord(result);
+				const accounts = asArray(r?.accounts);
+				if (!accounts) throw new Error('Expected accounts array');
+				return accounts.map((item) => {
+					const obj = asRecord(item);
+					const owner = asString(obj?.owner);
+					const subaccount = asString(obj?.subaccount);
+					if (!owner) throw new Error('Expected account.owner string');
+					return {
+						owner: Principal.fromText(owner),
+						subaccount: subaccount !== undefined ? fromBase64(subaccount) : undefined,
+					};
+				});
+			},
 		});
 	}
 
@@ -282,44 +329,41 @@ export class Signer<T extends Transport = Transport> {
 		return this.#rpc({
 			method: 'icrc34_delegation',
 			params,
-			encode: z
-				.object({
-					publicKey: z.custom<PublicKey>(),
-					targets: z.array(z.custom<Principal>()).optional(),
-					maxTimeToLive: z.custom<bigint>().optional(),
-				})
-				.transform((v) => ({
-					publicKey: z.util.uint8ArrayToBase64(new Uint8Array(v.publicKey.toDer())),
-					targets: v.targets?.map((t) => t.toText()),
-					maxTimeToLive: v.maxTimeToLive !== undefined ? String(v.maxTimeToLive) : undefined,
-				})),
-			decode: z
-				.object({
-					publicKey: zBase64,
-					signerDelegation: z.array(
-						z.object({
-							delegation: z.object({
-								pubkey: zBase64,
-								expiration: z.coerce.bigint(),
-								targets: z.array(zPrincipal).optional(),
-							}),
-							signature: zBase64,
-						}),
-					),
-				})
-				.transform((r) =>
-					DelegationChain.fromDelegations(
-						r.signerDelegation.map((d) => ({
+			encode: (v) => ({
+				publicKey: toBase64(new Uint8Array(v.publicKey.toDer())),
+				targets: v.targets?.map((t) => t.toText()),
+				maxTimeToLive: v.maxTimeToLive !== undefined ? String(v.maxTimeToLive) : undefined,
+			}),
+			decode: (result) => {
+				const r = asRecord(result);
+				const publicKey = asString(r?.publicKey);
+				const signerDelegation = asArray(r?.signerDelegation);
+				if (!publicKey || !signerDelegation) {
+					throw new Error('Expected { publicKey, signerDelegation }');
+				}
+				return DelegationChain.fromDelegations(
+					signerDelegation.map((item) => {
+						const obj = asRecord(item);
+						const del = asRecord(obj?.delegation);
+						const pubkey = asString(del?.pubkey);
+						const expiration = del?.expiration;
+						const signature = asString(obj?.signature);
+						if (!pubkey || expiration === undefined || !signature) {
+							throw new Error('Expected delegation { pubkey, expiration, signature }');
+						}
+						const targets = asArray(del?.targets);
+						return {
 							delegation: new Delegation(
-								d.delegation.pubkey,
-								d.delegation.expiration,
-								d.delegation.targets,
+								fromBase64(pubkey),
+								BigInt(expiration as string | number),
+								targets?.map((t) => Principal.fromText(t as string)),
 							),
-							signature: d.signature as Signature,
-						})),
-						r.publicKey,
-					),
-				),
+							signature: fromBase64(signature) as Signature,
+						};
+					}),
+					fromBase64(publicKey),
+				);
+			},
 		});
 	}
 
@@ -348,25 +392,22 @@ export class Signer<T extends Transport = Transport> {
 		return this.#rpc({
 			method: 'icrc49_call_canister',
 			params,
-			encode: z
-				.object({
-					canisterId: z.custom<Principal>(),
-					sender: z.custom<Principal>(),
-					method: z.string(),
-					arg: z.custom<Uint8Array>(),
-					nonce: z.custom<Uint8Array>().optional(),
-				})
-				.transform((v) => ({
-					canisterId: v.canisterId.toText(),
-					sender: v.sender.toText(),
-					method: v.method,
-					arg: z.util.uint8ArrayToBase64(v.arg),
-					nonce: v.nonce !== undefined ? z.util.uint8ArrayToBase64(v.nonce) : undefined,
-				})),
-			decode: z.object({
-				contentMap: zBase64,
-				certificate: zBase64,
+			encode: (v) => ({
+				canisterId: v.canisterId.toText(),
+				sender: v.sender.toText(),
+				method: v.method,
+				arg: toBase64(v.arg),
+				nonce: v.nonce !== undefined ? toBase64(v.nonce) : undefined,
 			}),
+			decode: (result) => {
+				const r = asRecord(result);
+				const contentMap = asString(r?.contentMap);
+				const certificate = asString(r?.certificate);
+				if (!contentMap || !certificate) {
+					throw new Error('Expected { contentMap, certificate }');
+				}
+				return { contentMap: fromBase64(contentMap), certificate: fromBase64(certificate) };
+			},
 		});
 	}
 
@@ -375,22 +416,36 @@ export class Signer<T extends Transport = Transport> {
 	 * Handles encoding params, validating the response, and throwing
 	 * {@link SignerError} on JSON-RPC errors or invalid results.
 	 */
-	async #rpc<T>(
-		args: { method: string; decode: z.ZodType<T> } & (
-			| { params: unknown; encode: z.ZodType<JsonRpcRequest['params']> }
+	async #rpc<T, P = never>(
+		args: { method: string; decode: (result: unknown) => T } & (
+			| { params: P; encode: (params: P) => JsonRpcRequest['params'] }
 			| { params?: never; encode?: never }
 		),
 	): Promise<T> {
+		let params: JsonRpcRequest['params'];
+		if (args.encode) {
+			try {
+				params = args.encode(args.params);
+			} catch (cause) {
+				throw new SignerError(
+					{
+						code: GENERIC_ERROR,
+						message: `Failed to encode params: ${cause instanceof Error ? cause.message : cause}`,
+					},
+					{ cause },
+				);
+			}
+		}
 		const response = await this.#sendRequest({
 			id: this.#options.crypto.randomUUID(),
 			jsonrpc: '2.0',
 			method: args.method,
-			params: args.encode ? args.encode.parse(args.params) : undefined,
+			params,
 		});
 		if ('error' in response) {
-			const parsed = JsonRpcErrorSchema.safeParse(response.error);
-			if (parsed.success) {
-				throw new SignerError(parsed.data);
+			const err = asRecord(response.error);
+			if (err && typeof err.code === 'number' && typeof err.message === 'string') {
+				throw new SignerError(err as JsonRpcError);
 			}
 			throw new SignerError({
 				code: GENERIC_ERROR,
@@ -398,21 +453,21 @@ export class Signer<T extends Transport = Transport> {
 			});
 		}
 		if ('result' in response) {
-			const parsed = args.decode.safeParse(response.result);
-			if (parsed.success) {
-				return parsed.data;
+			try {
+				return args.decode(response.result);
+			} catch (cause) {
+				throw new SignerError(
+					{
+						code: GENERIC_ERROR,
+						message: `Invalid result from signer: ${cause instanceof Error ? cause.message : cause}`,
+					},
+					{ cause },
+				);
 			}
-			throw new SignerError(
-				{
-					code: GENERIC_ERROR,
-					message: `Invalid result from signer:\n${z.prettifyError(parsed.error)}`,
-				},
-				{ cause: parsed.error },
-			);
 		}
 		throw new SignerError({
 			code: GENERIC_ERROR,
-			message: 'Invalid response',
+			message: 'Response contains neither result nor error',
 		});
 	}
 

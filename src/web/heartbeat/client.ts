@@ -1,4 +1,4 @@
-import { type JsonRpcResponse, JsonRpcResponseSchema } from '../../transport.js';
+import { type JsonRpcResponse, isJsonRpcResponse } from '../../transport.js';
 
 export interface HeartbeatClientOptions {
 	/**
@@ -185,7 +185,7 @@ export class HeartbeatClient {
 		const listener = (event: MessageEvent) => {
 			if (
 				(event.source === this.#options.signerWindow &&
-					JsonRpcResponseSchema.safeParse(event.data).success &&
+					isJsonRpcResponse(event.data) &&
 					'result' in event.data &&
 					event.data.result === 'pending') ||
 				event.data.result === 'ready'

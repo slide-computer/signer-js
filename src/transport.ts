@@ -1,43 +1,23 @@
-import { z } from 'zod';
-
-const zId = z.union([z.string(), z.number(), z.null()]);
-
-export const JsonRpcErrorSchema = z.object({
-	code: z.coerce.number().pipe(z.int()),
-	message: z.coerce.string(),
-	data: z.json().optional(),
-});
-
-export const JsonRpcRequestSchema = z.object({
-	jsonrpc: z.literal('2.0'),
-	id: zId.optional(),
-	method: z.coerce.string(),
-	params: z.union([z.array(z.json()), z.looseObject({})]).optional(),
-});
-
-export const JsonRpcResponseSchema = z.union([
-	z.object({
-		jsonrpc: z.literal('2.0'),
-		id: zId,
-		result: z.unknown(),
-	}),
-	z.object({
-		jsonrpc: z.literal('2.0'),
-		id: zId,
-		error: JsonRpcErrorSchema,
-	}),
-]);
-
-export type JsonRpcError = z.infer<typeof JsonRpcErrorSchema>;
-export type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>;
-export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>;
+export type JsonRpcError = { code: number; message: string; data?: unknown };
+export type JsonRpcRequest = {
+	jsonrpc: '2.0';
+	id?: string | number | null;
+	method: string;
+	params?: Record<string, unknown>;
+};
+export type JsonRpcResponse =
+	| { jsonrpc: '2.0'; id: string | number | null; result: unknown }
+	| { jsonrpc: '2.0'; id: string | number | null; error: JsonRpcError };
 
 export interface Channel {
 	closed: boolean;
 
 	addEventListener(event: 'close', listener: () => void): () => void;
 
-	addEventListener(event: 'response', listener: (response: JsonRpcResponse) => void): () => void;
+	addEventListener(
+		event: 'response',
+		listener: (response: JsonRpcResponse) => void,
+	): () => void;
 
 	send(request: JsonRpcRequest): Promise<void>;
 
@@ -47,3 +27,17 @@ export interface Channel {
 export interface Transport {
 	establishChannel(): Promise<Channel>;
 }
+
+export const isJsonRpcRequest = (message: unknown): message is JsonRpcRequest =>
+	typeof message === 'object' &&
+	message !== null &&
+	(message as Record<string, unknown>).jsonrpc === '2.0' &&
+	typeof (message as Record<string, unknown>).method === 'string';
+
+export const isJsonRpcResponse = (message: unknown): message is JsonRpcResponse =>
+	typeof message === 'object' &&
+	message !== null &&
+	(message as Record<string, unknown>).jsonrpc === '2.0' &&
+	'id' in message &&
+	(typeof (message as Record<string, unknown>).id === 'string' ||
+		typeof (message as Record<string, unknown>).id === 'number');

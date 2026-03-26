@@ -23,13 +23,33 @@ import {
 } from '@icp-sdk/core/agent';
 import { type JsonObject, uint8Equals } from '@icp-sdk/core/candid';
 import { Principal } from '@icp-sdk/core/principal';
-import { z } from 'zod';
 import type { Signer, Transport } from '../index.js';
 
+// Hex helpers — use native Uint8Array methods when available
+const fromHex = (hex: string): Uint8Array => {
+	if ('fromHex' in Uint8Array && typeof Uint8Array.fromHex === 'function') {
+		return Uint8Array.fromHex(hex);
+	}
+	const bytes = new Uint8Array(hex.length / 2);
+	for (let i = 0; i < bytes.length; i++) {
+		bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+	}
+	return bytes;
+};
+
+const toHex = (bytes: Uint8Array): string => {
+	if ('toHex' in bytes && typeof bytes.toHex === 'function') {
+		return bytes.toHex();
+	}
+	let hex = '';
+	for (let i = 0; i < bytes.byteLength; i++) {
+		hex += bytes[i].toString(16).padStart(2, '0');
+	}
+	return hex;
+};
+
 // IC root key as bytes, used as fallback when agent has no root key
-const ROOT_KEY = new Uint8Array(
-	IC_ROOT_KEY.match(/[\da-f]{2}/gi)?.map((h) => parseInt(h, 16)) ?? [],
-);
+const ROOT_KEY = fromHex(IC_ROOT_KEY);
 
 const MAX_AGE_IN_MINUTES = 5;
 const INVALID_RESPONSE_MESSAGE = 'Received invalid response from signer';
@@ -194,7 +214,7 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
 		}
 
 		// Store raw certificate for readState lookups, deleted on first read
-		this.#certificates.set(z.util.uint8ArrayToBase64(requestId), response.certificate);
+		this.#certificates.set(toHex(requestId), response.certificate);
 
 		return {
 			requestId,
@@ -324,7 +344,7 @@ export class SignerAgent<T extends Transport = Transport> implements Agent {
 			throw new SignerAgentError('Given paths are not supported');
 		}
 		const requestId = options.paths[0][1] as RequestId;
-		const key = z.util.uint8ArrayToBase64(requestId);
+		const key = toHex(requestId);
 		const certificate = this.#certificates.get(key);
 		if (!certificate) {
 			throw new SignerAgentError('Certificate could not be found');

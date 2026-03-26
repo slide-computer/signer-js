@@ -2,7 +2,7 @@ import {
 	type Channel,
 	type JsonRpcRequest,
 	type JsonRpcResponse,
-	JsonRpcResponseSchema,
+	isJsonRpcResponse,
 } from '../transport.js';
 import { PostMessageTransportError } from './postMessageTransport.js';
 
@@ -76,7 +76,7 @@ export class PostMessageChannel implements Channel {
 					if (
 						event.source !== this.#options.signerWindow ||
 						event.origin !== this.#options.signerOrigin ||
-						!JsonRpcResponseSchema.safeParse(event.data).success
+						!isJsonRpcResponse(event.data)
 					) {
 						return;
 					}

@@ -75,12 +75,12 @@ export class BrowserExtensionTransport implements Transport {
 		window = globalThis.window,
 	}: DiscoverBrowserExtensionOptions = {}): Promise<ProviderDetail[]> {
 		const providerDetails: ProviderDetail[] = [];
-		window.addEventListener('icrc94:announceProvider', (event) => {
+		window.addEventListener('icrc94:announceProvider', ((event: CustomEvent<ProviderDetail>) => {
 			if (providerDetails.find((providerDetail) => providerDetail.uuid === event.detail.uuid)) {
 				return;
 			}
 			providerDetails.push(event.detail);
-		});
+		}) as EventListener);
 		window.dispatchEvent(new CustomEvent('icrc94:requestProvider'));
 		await new Promise((resolve) => setTimeout(resolve, discoveryDuration));
 		return providerDetails;

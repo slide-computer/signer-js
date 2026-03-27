@@ -59,6 +59,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.esm.json && npm run lint:package",
     "test": "vitest run",
+    "test:e2e": "npm run build && npm run build:e2e && playwright test",
+    "build:e2e": "cd e2e/fixtures && esbuild relying-party.ts mock-wallet.ts mock-auth-provider.ts --bundle --format=iife --outdir=. --out-extension:.js=.bundle.js",
     "codestyle:check": "biome check",
     "codestyle:fix": "biome check --write",
     "lint:package": "publint --strict"
@@ -68,9 +70,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.9",
+    "@playwright/test": "^1.58.2",
     "@tsconfig/node22": "^22.0.5",
     "@types/node": "^25.5.0",
+    "esbuild": "^0.27.4",
     "publint": "^0.3.18",
+    "serve": "^14.2.6",
     "typescript": "^5.9.3",
     "vitest": "^4.1.1"
   }

@@ -112,6 +112,8 @@ dist
 
 # Build output
 lib/
+e2e/fixtures/*.bundle.js
+test-results/
 
 # IDE Settings
 .code

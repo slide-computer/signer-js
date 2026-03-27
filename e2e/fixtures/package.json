@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@icp-sdk/core": "^5",
+    "@icp-sdk/signer": "file:../../"
+  }
+}
